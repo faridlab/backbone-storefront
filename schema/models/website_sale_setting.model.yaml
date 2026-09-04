@@ -1,0 +1,61 @@
+# =============================================================================
+# storefront — one row per website: WebsiteSaleSetting.
+#
+# PORT DECISIONS (source: docs/odoo/website/ecommerce — docs/spec.md §3.3):
+#  - Settings are PER-WEBSITE rows (the every-website fan-out config verb
+#    dies by grain): the B2B access gate, the default customer-group
+#    segment, the designated guest party, and the recovery template ref.
+#  - `access_gate = 'members_only'` makes every public catalog/cart/
+#    checkout verb require a verified portal principal (401 otherwise).
+#    No sitemap exists to suppress; when one lands it must gate too.
+#  - `default_customer_group_id` is how "per-website pricelist" lands
+#    WITHOUT a promo increment: the website's segment rides the pricing
+#    port's EXISTING group dimension (a real promo rule dimension).
+#  - `guest_party_id` is minted through the PartyWritePort on first set
+#    (the website public_user_id bootstrap pattern) — the designated
+#    public customer party anonymous carts ride on the ORDER's customer
+#    column; it is NEVER passed to promo as a pricing dimension.
+#  - `recovery_template_ref` names the per-website recovery message
+#    template — no hardcoded fallback template exists anywhere.
+# =============================================================================
+
+models:
+
+  - name: WebsiteSaleSetting
+    collection: website_sale_settings
+    read_only: true
+    description: "WebsiteSaleSetting — the per-website sale settings row: the B2B access gate, the default pricing segment, the designated guest party, and the recovery template reference. Read-only over HTTP: written only through the typed officer settings verb (which bootstraps the guest party on first set through the PartyWritePort)."
+    fields:
+      id:
+        type: uuid
+        attributes: ["@id", "@default(uuid)"]
+        description: "Unique record id"
+      website_id:
+        type: uuid
+        attributes: ["@required", "@indexed", "@exclude_from_foreign_key_check"]
+        description: "LOGICAL ref website.websites(id) — UNIQUE among live rows (the hardening migration): exactly one settings row per website."
+      access_gate:
+        type: StorefrontAccessGate
+        attributes: ["@required", "@default(open)"]
+        description: "The B2B access gate: 'open' serves anonymous shoppers; 'members_only' requires a verified portal principal on every public catalog/cart/checkout verb (typed 401 otherwise — never a pricing oracle for walled stores)."
+      default_customer_group_id:
+        type: uuid?
+        attributes: ["@exclude_from_foreign_key_check"]
+        description: "The per-website pricing segment (LOGICAL ref to the party/promo group domain) — the resolution-order fallback for the pricing port's customer_group_id dimension; the billing party's explicit segment wins when one resolves."
+      guest_party_id:
+        type: uuid
+        attributes: ["@required", "@exclude_from_foreign_key_check"]
+        description: "LOGICAL ref party.parties(id) — the designated public customer party anonymous carts ride on the minted order's customer column. Minted through the PartyWritePort by the settings verb on first set; never a pricing dimension."
+      recovery_template_ref:
+        type: string?
+        attributes: ["@max(200)"]
+        description: "The per-website recovery message template reference honored by the explicit officer recovery verb; NULL = the verb answers the typed unwired-template refusal (no hardcoded fallback exists)."
+      metadata:
+        type: Metadata
+        attributes: ["@audit_metadata"]
+        description: "Audit metadata"
+
+    indexes:
+      - type: index
+        fields: [website_id]
+        description: "The per-website settings read (one live row per website)"

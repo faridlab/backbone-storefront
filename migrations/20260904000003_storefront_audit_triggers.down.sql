@@ -1,0 +1,28 @@
+-- Down: storefront audit triggers — drop the stamping triggers + functions.
+DROP TRIGGER IF EXISTS website_sale_settings_update_audit ON storefront.website_sale_settings;
+DROP TRIGGER IF EXISTS website_sale_settings_insert_audit ON storefront.website_sale_settings;
+DROP FUNCTION IF EXISTS storefront.website_sale_settings_audit_timestamp();
+DROP TRIGGER IF EXISTS storefront_audit_log_update_audit ON storefront.storefront_audit_log;
+DROP TRIGGER IF EXISTS storefront_audit_log_insert_audit ON storefront.storefront_audit_log;
+DROP FUNCTION IF EXISTS storefront.storefront_audit_log_audit_timestamp();
+DROP TRIGGER IF EXISTS shopper_parties_update_audit ON storefront.shopper_parties;
+DROP TRIGGER IF EXISTS shopper_parties_insert_audit ON storefront.shopper_parties;
+DROP FUNCTION IF EXISTS storefront.shopper_parties_audit_timestamp();
+DROP TRIGGER IF EXISTS recovery_invites_update_audit ON storefront.recovery_invites;
+DROP TRIGGER IF EXISTS recovery_invites_insert_audit ON storefront.recovery_invites;
+DROP FUNCTION IF EXISTS storefront.recovery_invites_audit_timestamp();
+DROP TRIGGER IF EXISTS product_prices_update_audit ON storefront.product_prices;
+DROP TRIGGER IF EXISTS product_prices_insert_audit ON storefront.product_prices;
+DROP FUNCTION IF EXISTS storefront.product_prices_audit_timestamp();
+DROP TRIGGER IF EXISTS product_listings_update_audit ON storefront.product_listings;
+DROP TRIGGER IF EXISTS product_listings_insert_audit ON storefront.product_listings;
+DROP FUNCTION IF EXISTS storefront.product_listings_audit_timestamp();
+DROP TRIGGER IF EXISTS checkout_sessions_update_audit ON storefront.checkout_sessions;
+DROP TRIGGER IF EXISTS checkout_sessions_insert_audit ON storefront.checkout_sessions;
+DROP FUNCTION IF EXISTS storefront.checkout_sessions_audit_timestamp();
+DROP TRIGGER IF EXISTS cart_lines_update_audit ON storefront.cart_lines;
+DROP TRIGGER IF EXISTS cart_lines_insert_audit ON storefront.cart_lines;
+DROP FUNCTION IF EXISTS storefront.cart_lines_audit_timestamp();
+DROP TRIGGER IF EXISTS carts_update_audit ON storefront.carts;
+DROP TRIGGER IF EXISTS carts_insert_audit ON storefront.carts;
+DROP FUNCTION IF EXISTS storefront.carts_audit_timestamp();

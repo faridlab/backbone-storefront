@@ -1,0 +1,122 @@
+# =============================================================================
+# storefront Module - Schema Index
+# =============================================================================
+# Version: 2.0
+# Description: Module schema index. `module:`/`schema:` give this module its
+# OWN Postgres schema `storefront` (migrations emit `CREATE SCHEMA storefront`
+# and qualify tables as `storefront.<table>`) — the convention every backbone
+# module follows. The CRATE is `backbone-storefront`; the schema and the HTTP
+# mount base are both `storefront` (`/api/v1/storefront`, host-nested).
+#
+# ENUM CENSUS DUTY: this module owns exactly four enum types, created
+# UNQUALIFIED in `public` (the ratified family convention). The four
+# `storefront_*` stems were census-checked against every module migration
+# in the tree before landing (zero exact or stem collisions; no
+# `storefront_*` enum or `CREATE SCHEMA storefront` exists anywhere else —
+# verified 2026-09-04, re-run before the enum migration lands).
+# =============================================================================
+
+module: storefront
+version: 2
+schema: storefront
+description: "storefront — the server-authoritative eCommerce core: carts as identity-bound drafts (partial-unique open-cart per visitor, explicit adoption through portal linkage, the sales order minted only at place), publish-gated product listings paired per website with per-website price rows, checkout under a cart row lock that closes the delivery-change window, the pending gateway transaction created inside that lock, settlement-to-confirm riding the gateway's existing seam, and abandoned carts as a derived read with an explicit recovery verb (Odoo website_sale port; rendering and the payment UX stay in the webapp)"
+
+# =============================================================================
+# company_fence (ADR-0014): multi-tenant row-level-security posture
+# -----------------------------------------------------------------------------
+# Posture: none — the website module's posture 4. The upstream Odoo
+# website_sale addon ships no company ir.rules on its storefront rows;
+# multi-website scoping is the verb surface plus the identity binding.
+# Every table carries website_id; the company is DERIVED through
+# website.websites.company_id (NOT NULL there) for officer scoping, and
+# selling's own company fence (ADR-0008) governs every order write the
+# place verb mints. No RLS policy is emitted for any storefront table.
+# -----------------------------------------------------------------------------
+company_fence: none
+
+config:
+  database: postgresql
+  soft_delete: true          # metadata.deleted_at rides @audit_metadata as
+                             # family plumbing; carts/checkout sessions are
+                             # lifecycle-state rows (state columns, never
+                             # soft-deleted by the verbs)
+  audit: true
+  default_timestamps: true
+  generators:
+    disabled:
+      - graphql
+      - grpc
+      - proto
+
+# Identity sources (logical refs, never cross-schema FKs):
+#  - portal owns the authenticated principal (PortalUser) — the adopt stamp
+#    and the principal arm of cart identity;
+#  - website owns the website root (Website) and the visitor row (the
+#    session lineage a cart binds to — the storefront NEVER mints visitors).
+external_imports:
+  - module: portal
+    types: [PortalUser]
+  - module: website
+    types: [Website]
+
+# Shared value-object types available to all models in this module.
+shared_types:
+  Timestamps:
+    created_at:
+      type: datetime
+      attributes: ["@default(now)"]
+      description: "Record creation timestamp"
+    updated_at:
+      type: datetime
+      attributes: ["@updated_at"]
+      description: "Last update timestamp"
+    deleted_at:
+      type: datetime?
+      description: "Soft delete timestamp"
+
+  Actors:
+    # Plain nullable uuids — officers authenticate through the host's
+    # company_auth (no sapiens edge); shopper identity is the visitor
+    # token or a verified portal principal, never an actor column.
+    created_by:
+      type: uuid?
+      attributes: ["@exclude_from_foreign_key_check"]
+      description: "Officer who created this record (logical ref — no cross-schema constraint)"
+    updated_by:
+      type: uuid?
+      attributes: ["@exclude_from_foreign_key_check"]
+      description: "Officer who last updated this record (logical ref)"
+    deleted_by:
+      type: uuid?
+      attributes: ["@exclude_from_foreign_key_check"]
+      description: "Officer who deleted this record (logical ref)"
+
+  Metadata: [Timestamps, Actors]
+
+# Import each entity model (informational — discovery is a recursive glob,
+# but keeping the list accurate helps readers).
+imports:
+  - product_listing.model.yaml       # ProductListing
+  - product_price.model.yaml         # ProductPrice
+  - website_sale_setting.model.yaml  # WebsiteSaleSetting
+  - cart.model.yaml                  # Cart
+  - cart_line.model.yaml             # CartLine
+  - shopper_party.model.yaml         # ShopperParty
+  - checkout_session.model.yaml      # CheckoutSession
+  - recovery_invite.model.yaml       # RecoveryInvite
+  - storefront_audit_log.model.yaml  # StorefrontAuditLog
+
+# =============================================================================
+# BUILD-CONTRACT COVERAGE — the register rows this module owns
+# (docs/spec.md §12, the authoritative disposition table; the Odoo
+# reference cohort lives at docs/odoo/website/ecommerce/):
+#  EC-1/EC-R5  → the publish pairing is ONE table (product_listings) plus
+#          the code contract (§4.1 of docs/spec.md).
+#  EC-15/EC-25/EC-R13 → partial-unique open cart, explicit adopt, one
+#          client secret (the visitor token).
+#  EC-24/CART-CHECKOUT → the cart row lock over place AND delivery AND
+#          billing AND express (§7.1).
+#  EC-14/EC-16 → derived abandonment at ONE constant, ordered reads,
+#          explicit recovery verbs.
+#  INSTALLS-INERT → no install/uninstall hooks exist at all.
+# =============================================================================

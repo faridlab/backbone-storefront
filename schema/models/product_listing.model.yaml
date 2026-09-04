@@ -1,0 +1,67 @@
+# =============================================================================
+# storefront — the per-website publish pairing: ProductListing.
+#
+# PORT DECISIONS (source: docs/odoo/website/ecommerce — docs/spec.md §3.1/§4):
+#  - THE publish pairing for products lives in exactly ONE table: a live
+#    (website_id, item_id) row pairs a catalog item with a website's
+#    storefront. Upstream's publish state scattered across mixins dies;
+#    the product entity is NOT enrolled in website's generic-vs-specific
+#    resolver (that fold is page-scoped by design — the per-website grain
+#    here IS the listing row).
+#  - `is_published` is FENCE-VERBED: writable ONLY through the
+#    publish/unpublish verbs; every generic patch carrying it is a typed
+#    refusal + a publish_refused audit row (the page_service
+#    PUBLISH_FENCED_FIELDS precedent).
+#  - `sale_ok` is the merchandising sale-eligibility flag — catalog
+#    carries none (item status only), so the storefront owns it per
+#    website.
+#  - `sequence` is HAND-SET ordering (no computed ribbon/sequence race).
+#  - `media_urls` holds webapp/object-storage URLs only; a `data:` URI is
+#    REJECTED at write validation — unpublished or other-website listings
+#    structurally return no media on any read (the gate filters the row).
+# =============================================================================
+
+models:
+
+  - name: ProductListing
+    collection: product_listings
+    read_only: true
+    description: "ProductListing — the per-website publish pairing. One live row per (website, item): the sale-eligibility flag, the fence-verbed publish state, the hand-set sequence, and the ordered media references. Read-only over HTTP: created/patched only through the typed officer verbs (is_published never patchable), published/unpublished only through the fence verbs."
+    fields:
+      id:
+        type: uuid
+        attributes: ["@id", "@default(uuid)"]
+        description: "Unique record id"
+      website_id:
+        type: uuid
+        attributes: ["@required", "@indexed", "@exclude_from_foreign_key_check"]
+        description: "LOGICAL ref website.websites(id) — the website whose storefront this listing pairs. Never a cross-schema FK."
+      item_id:
+        type: uuid
+        attributes: ["@required", "@indexed", "@exclude_from_foreign_key_check"]
+        description: "LOGICAL ref catalog.items(id) — the merchandised product. Cross-module reads (identity/status/group/name) go through the module's CatalogReadPort, never a direct catalog edge."
+      sale_ok:
+        type: bool
+        attributes: ["@required", "@default(false)"]
+        description: "The merchandising sale-eligibility arm of the visibility contract (§4.1 of docs/spec.md): a listing is storefront-visible iff a live row exists AND sale_ok AND is_published AND the catalog item is active."
+      is_published:
+        type: bool
+        attributes: ["@required", "@default(false)"]
+        description: "STORED publish state — writable ONLY through the publish/unpublish fence verbs; a generic patch carrying it refuses (typed storefront_field_not_patchable, audit publish_refused). Publish never couples from any other write."
+      sequence:
+        type: integer
+        attributes: ["@required", "@default(10)"]
+        description: "Hand-set ordering — the 'relevance' sort arm. No computed sequence and no race-prone ribbon computation exists."
+      media_urls:
+        type: json
+        attributes: ["@required", "@default('[]')"]
+        description: "Ordered array of {url, alt?} media references — webapp/object-storage URLs only; a `data:` URI is rejected at write validation (no data-URI smuggling)."
+      metadata:
+        type: Metadata
+        attributes: ["@audit_metadata"]
+        description: "Audit metadata"
+
+    indexes:
+      - type: index
+        fields: [website_id, is_published, sequence]
+        description: "The gated listing read (published rows in hand-set order)"

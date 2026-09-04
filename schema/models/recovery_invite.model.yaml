@@ -1,0 +1,54 @@
+# =============================================================================
+# storefront — the explicit recovery record: RecoveryInvite.
+#
+# PORT DECISIONS (source: docs/odoo/website/ecommerce — docs/spec.md §3.8/§8):
+#  - AUDIT-STAMP ONLY: eligibility NEVER derives from these rows — it is
+#    computed FRESH per call (a shopper who gains an email later still
+#    qualifies; no permanent 'notified' flag exists anywhere).
+#  - delivery_state is typed and VISIBLE: 'pending' (recorded, delivery
+#    not attempted), 'sent' (the notify port accepted), 'unwired' (the
+#    host notifier port is not composed — a loud, typed state, never a
+#    silent skip).
+# =============================================================================
+
+models:
+
+  - name: RecoveryInvite
+    collection: recovery_invites
+    read_only: true
+    description: "RecoveryInvite — the audit stamp of one explicit officer recovery send: which per-website template was honored and where its delivery stands. Eligibility is never derived from these rows. Read-only over HTTP: written only by the explicit recovery verb."
+    fields:
+      id:
+        type: uuid
+        attributes: ["@id", "@default(uuid)"]
+        description: "Unique record id"
+      cart_id:
+        type: uuid
+        attributes: ["@required", "@foreign_key(Cart.carts)", "@indexed"]
+        description: "The recovered (abandoned) cart (real intra-schema FK, CASCADE)."
+      template_ref:
+        type: string
+        attributes: ["@required", "@max(200)"]
+        description: "The per-website recovery template the send honored — copied from the settings row at send time; no hardcoded fallback exists."
+      notified_at:
+        type: datetime?
+        description: "When the notify port accepted the delivery (audit stamp only — NEVER an eligibility input)."
+      delivery_state:
+        type: string
+        attributes: ["@required", "@default(pending)", "@max(16)"]
+        description: "The visible delivery state: 'pending' | 'sent' | 'unwired'. 'unwired' is typed and loud — an uncomposed notifier port never silently drops a send."
+      metadata:
+        type: Metadata
+        attributes: ["@audit_metadata"]
+        description: "Audit metadata"
+
+    relations:
+      cart:
+        type: Cart
+        attributes: ["@one", "@foreign_key(cart_id)", "@on_delete(cascade)"]
+        description: "The recovered cart (real FK storefront.recovery_invites.cart_id -> storefront.carts, cascade)"
+
+    indexes:
+      - type: index
+        fields: [cart_id]
+        description: "The per-cart recovery audit trail"

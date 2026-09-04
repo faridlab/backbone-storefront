@@ -1,0 +1,52 @@
+# =============================================================================
+# storefront — the cart's line grain: CartLine.
+#
+# PORT DECISIONS (source: docs/odoo/website/ecommerce — docs/spec.md §3.5):
+#  - NO STORED PRICES: a line is (item, quantity) only — every read
+#    re-derives through the cart-pricing port (the fused-render pricing
+#    dies; rendering never prices). The per-cart line bound is the
+#    STOREFRONT_MAX_CART_LINES knob (typed 422 on exceed).
+#  - quantity is decimal(18,4) positive — the set-quantity verb refuses
+#    non-positive values; the publish gate (live listing + sale_ok +
+#    published + active item + live price row) is re-checked AT MUTATION
+#    TIME with typed refusals, never a silent unlink.
+# =============================================================================
+
+models:
+
+  - name: CartLine
+    collection: cart_lines
+    read_only: true
+    description: "CartLine — one (item, quantity) pair on a cart. Prices are NEVER stored: every display read and the place-time mint re-derive through the cart-pricing port. Read-only over HTTP: lines move only through the typed cart verbs."
+    fields:
+      id:
+        type: uuid
+        attributes: ["@id", "@default(uuid)"]
+        description: "Unique record id"
+      cart_id:
+        type: uuid
+        attributes: ["@required", "@foreign_key(Cart.carts)", "@indexed"]
+        description: "The owning cart (real intra-schema FK, CASCADE — a cart's lines are the cart's own state)."
+      item_id:
+        type: uuid
+        attributes: ["@required", "@exclude_from_foreign_key_check"]
+        description: "LOGICAL ref catalog.items(id) — the merchandised product; validated against the publish gate at every mutation."
+      quantity:
+        type: decimal
+        attributes: ["@required", "@precision(18,4)", "@positive"]
+        description: "The line quantity (decimal(18,4), strictly positive — the set verb refuses anything else)."
+      metadata:
+        type: Metadata
+        attributes: ["@audit_metadata"]
+        description: "Audit metadata"
+
+    relations:
+      cart:
+        type: Cart
+        attributes: ["@one", "@foreign_key(cart_id)", "@on_delete(cascade)"]
+        description: "The owning cart (real FK storefront.cart_lines.cart_id -> storefront.carts, cascade)"
+
+    indexes:
+      - type: index
+        fields: [cart_id, item_id]
+        description: "The per-cart line read and same-item fold check"

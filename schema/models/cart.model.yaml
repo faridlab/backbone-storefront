@@ -1,0 +1,85 @@
+# =============================================================================
+# storefront — the cart spine: Cart.
+#
+# PORT DECISIONS (source: docs/odoo/website/ecommerce — docs/spec.md §2/§3.4):
+#  - A cart is a LIFECYCLE EQUIVALENT of a draft selling order, not a
+#    storage identity: cart state (identity binding, lines, coupon,
+#    carrier, checkout link) lives HERE; the selling.sales_orders row is
+#    minted ONCE, at place, by create_sales_order_priced. Before place
+#    there IS no order row — anonymous browsing never consumes order
+#    numbers and no sudo'd resolver can adopt arbitrary order drafts.
+#  - Identity binding is REAL and exactly-one: visitor_id (the website
+#    session lineage — NEVER minted by this module) and optionally
+#    portal_user_id (stamped ONLY by the explicit adopt verb through the
+#    cart's own portal linkage). The ONLY client-held secret is the
+#    visitor token; quantities and prices live server-side only.
+#  - The open-cart invariant is a PARTIAL UNIQUE (one open cart per
+#    visitor) — concurrent creates race to exactly one winner; no
+#    check-then-act anywhere.
+#  - THIS ROW is the checkout row-lock target: place, delivery change,
+#    billing capture, and express all take `SELECT ... FOR UPDATE` on it
+#    inside one DB transaction — no unlocked delivery-change window can
+#    exist beside a pending gateway transaction.
+# =============================================================================
+
+models:
+
+  - name: Cart
+    collection: carts
+    read_only: true
+    description: "Cart — the identity-bound draft spine. Created deterministically (partial-unique open cart per visitor), adoptable only through its own portal linkage, priced fresh on every read through the cart-pricing port (no stored prices), and placed exactly once under the row lock that also guards delivery and billing changes. Read-only over HTTP: every mutation is a typed verb."
+    fields:
+      id:
+        type: uuid
+        attributes: ["@id", "@default(uuid)"]
+        description: "Unique record id"
+      website_id:
+        type: uuid
+        attributes: ["@required", "@indexed", "@exclude_from_foreign_key_check"]
+        description: "LOGICAL ref website.websites(id) — the website this cart belongs to; the company every downstream order books to derives from it."
+      visitor_id:
+        type: uuid
+        attributes: ["@required", "@indexed", "@exclude_from_foreign_key_check"]
+        description: "LOGICAL ref website.visitors(id) — the session lineage. The storefront NEVER mints visitor rows: the token arrives from the website session and carts only READ by token. One open cart per visitor (the partial unique)."
+      portal_user_id:
+        type: uuid?
+        attributes: ["@indexed", "@exclude_from_foreign_key_check"]
+        description: "LOGICAL ref portal.portal_users(id) — the authenticated identity, stamped ONLY by the explicit adopt verb (and by recovery of a portal-linked cart); a cart is adoptable ONLY through this linkage, never through 'some draft exists'."
+      party_id:
+        type: uuid?
+        attributes: ["@exclude_from_foreign_key_check"]
+        description: "LOGICAL ref party.parties(id) — the billing identity the placed order rides; NULL until billing capture (the deterministic shopper-parties resolve-or-create)."
+      state:
+        type: StorefrontCartState
+        attributes: ["@required", "@default(open)"]
+        lifecycle:
+          shape: hand_set
+          # No `state_machine:` ref — deliberate, recorded. The edges are
+          # owned by the verbs: open->placed (the place verb, under the
+          # row lock), placed->closed (settlement-driven completion is a
+          # read-side derivation at this version), open|placed->cancelled
+          # (the cancel mirror). No verb flips a terminal state back.
+        description: "THE lifecycle column: 'open' (mutable draft), 'placed' (order minted, awaiting payment or free-confirmed), 'closed', 'cancelled'. The partial unique keys on state='open'."
+      coupon_code:
+        type: string?
+        attributes: ["@max(60)"]
+        description: "The presented coupon code (case-folded at apply) — applied ONLY via the POST apply verb; redemption stays promo's at order commit through selling's priced path."
+      delivery_carrier_id:
+        type: uuid?
+        attributes: ["@exclude_from_foreign_key_check"]
+        description: "LOGICAL ref selling's delivery carriers — set only under the cart row lock, validated against the company's carriers (a clean typed 404, never an FK 500)."
+      placed_at:
+        type: datetime?
+        description: "Stamped by the place verb inside the row lock, together with the state flip to 'placed'."
+      metadata:
+        type: Metadata
+        attributes: ["@audit_metadata"]
+        description: "Audit metadata"
+
+    indexes:
+      - type: index
+        fields: [website_id, state]
+        description: "The officer abandoned/checkout reads scoped per website"
+      - type: index
+        fields: [visitor_id]
+        description: "The visitor's own-cart reads (open-cart resolution, recovery re-bind)"

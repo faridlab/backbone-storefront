@@ -1,0 +1,98 @@
+[package]
+name = "backbone-storefront"
+version = "0.1.0"
+edition = "2021"
+description = "Server-authoritative eCommerce core — carts as identity-bound drafts (partial-unique open cart per visitor, explicit adoption through portal linkage, the sales order minted only at place under a cart row lock that also guards delivery and billing changes), publish-gated per-website product listings with per-website price rows, checkout that creates the pending gateway transaction inside the lock, settlement-to-confirm riding the gateway's existing seam, and abandoned carts as a derived read with an explicit recovery verb (Odoo website_sale port; rendering and the payment UX stay in the webapps)"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+# -----------------------------------------------------------------------------
+# Backbone Framework crates
+#
+# Pulled directly from the public framework repository so this module works
+# anywhere on disk without path fix-up. Pinned to the framework tag current
+# at module creation (single-rev policy: every framework source in the
+# resolved graph resolves to this one tag).
+# -----------------------------------------------------------------------------
+backbone-core = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.11", features = ["postgres"] }
+backbone-orm = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.11" }
+backbone-auth = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.11" }
+backbone-rate-limit = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.11" }
+# The generated event scaffolding (src/domain/event/*.rs — CrudEvent /
+# CrudEventPublisher imports) does not compile without this crate. The
+# module itself stages NO outbox events, subscribes to NONE (hooks index
+# declares events: {}), owns no outbox table, and the host's
+# outbox_schemas set carries no storefront entry — the same
+# zero-events-with-plumbing-dep posture as the website and blog modules.
+backbone-messaging = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.11" }
+
+# -----------------------------------------------------------------------------
+# Sibling module edges — EXACTLY FOUR, each justified by a NAMED type
+# (docs/spec.md §1): selling's write verbs + the cart-pricing port DTOs;
+# website's exported WebsiteSurface/WebsitePrincipal; portal's
+# PortalUserId; payment-gateway's transaction create + settle types.
+# -----------------------------------------------------------------------------
+# TEMPORARY path pin — SWAP BACK to the git tag at the release cut:
+#   backbone-selling = { git = "https://github.com/faridlab/backbone-selling", tag = "v0.9.2" }
+# The carrier-at-mint increment (delivery_carrier_id on NewCartSalesOrder)
+# lives in the sibling tree ahead of its v0.9.2 tag; this pin compiles against
+# it. When v0.9.2 is tagged, restore the git form above — the workspace's
+# consumer copy must NEVER carry this path pin.
+backbone-selling = { path = "../backbone-selling" }
+backbone-website = { git = "https://github.com/faridlab/backbone-website", tag = "v0.1.0" }
+backbone-portal = { git = "https://github.com/faridlab/backbone-portal", tag = "v0.2.0" }
+backbone-payment-gateway = { git = "https://github.com/faridlab/backbone-payment-gateway", tag = "v0.3.3" }
+
+# Sibling modules NOT consumed by design — recorded here so no later seat
+# adds them casually (the website precedent):
+#  - backbone-promo: NO edge, ever. Promo is consumed ONLY through
+#    selling's CartPricingPort as the host composes it over promo's
+#    resolve_cart (the PromoCartPricingAdapter is the only meeting
+#    place); the forbidden selling->promo edge stays forbidden
+#    storefront->promo for the same reason.
+#  - backbone-events: nothing of events is consumed; the intake router
+#    stays exported-unmounted (the funnel increment arms it).
+#  - backbone-catalog / backbone-party / backbone-tax: reads and writes
+#    on those domains go through the module-defined ports
+#    (CatalogReadPort, PartyWritePort, TaxResolvePort) the HOST wires
+#    over its own module handles — the composing-service posture.
+
+# Core async runtime and serialization
+tokio = { version = "1.0", features = ["full"] }
+async-trait = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# Money/quantities — the price rows, cart quantities, and the selling
+# port DTOs all carry rust_decimal.
+rust_decimal = { version = "1.36", features = ["serde"] }
+
+# Database (PostgreSQL primary)
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json", "migrate", "rust_decimal"] }
+
+# HTTP framework (Axum) — the module exports pure routers; the host mounts.
+axum = { version = "0.7", features = ["macros"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+
+# Logging
+tracing = "0.1"
+
+# Validation / errors / config plumbing used by the generated tree
+validator = { version = "0.16", features = ["derive"] }
+anyhow = "1.0"
+thiserror = "1.0"
+config = "0.14"
+serde_yaml = "0.9"
+
+[dev-dependencies]
+tempfile = "3.0"
+tokio-test = "0.4"
+pretty_assertions = "1.0"
+futures = "0.3"
+# oneshot request/response driving of the exported routers in the probe suite
+tower = { version = "0.4", features = ["util"] }

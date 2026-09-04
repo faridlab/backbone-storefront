@@ -1,0 +1,87 @@
+# Codegen policy for storefront.
+#
+# `user_owned` globs are hand-written files that live inside generator-owned
+# trees but are NOT schema-derived. `metaphor schema generate [--force]`
+# skips them wholesale (never reads, merges, or deletes them). Everything
+# else in src/ is regenerated from schema/models.
+#
+# Declared BEFORE any file lands (the regen-safety contract): a landing
+# without the declaration is clobbered on the next regen; a declaration
+# without the file is the dangling class removed by review — later seats
+# extend this list on the same contract, declaring each hand file in the
+# same change that lands it.
+
+user_owned:
+  # The module's typed error surface (one enum, HTTP mappings) — shared by
+  # every hand service below.
+  - "src/application/service/storefront_error.rs"
+
+  # Host-wired ports (the composing-service posture): catalog reads,
+  # party mint + segment lookup, order-level tax resolution, and the
+  # recovery notifier. Each owns its trait + refusing/unwired default;
+  # the host installs adapters over its own module handles.
+  - "src/application/service/catalog_read_port.rs"
+  - "src/application/service/party_write_port.rs"
+  - "src/application/service/tax_resolve_port.rs"
+  - "src/application/service/notifier_port.rs"
+
+  # Cart verbs: deterministic create (partial-unique open cart per
+  # visitor), read, explicit adoption, line add/set/remove with the
+  # publish gate re-checked at mutation time and the per-cart line bound,
+  # coupon apply/remove, billing capture (email->party resolve-or-create
+  # + in-verb re-price), delivery change under the checkout row lock,
+  # recover.
+  - "src/application/service/cart_service.rs"
+
+  # Publish-gated public catalog reads (listing/detail/categories —
+  # sale_ok AND published enforced in the domain) + the officer listing
+  # and price verbs with the publish fence.
+  - "src/application/service/catalog_service.rs"
+
+  # The pricing mapping (per-website price rows -> selling's
+  # CartPricingPort DTOs) and the per-company cache invalidation.
+  - "src/application/service/pricing_service.rs"
+
+  # Checkout verbs: the cart row lock (SELECT ... FOR UPDATE at
+  # place/delivery/billing/express), the one-time priced-order mint via
+  # selling's create_sales_order_priced, gateway transaction creation
+  # INSIDE the lock, the free arm, the settlement consumer (settle ->
+  # confirm), the cancel mirror, checkout reads.
+  - "src/application/service/checkout_service.rs"
+
+  # Abandoned carts: the derived read (computed fresh per call off the
+  # ONE delay constant) + the explicit officer recovery verb.
+  - "src/application/service/recovery_service.rs"
+
+  # The audit-stamp helper (website's record_audit shape).
+  - "src/application/service/audit.rs"
+
+  # The retained skeleton composition root (the Example CRUD wiring).
+  # Storefront's real composition is the two State::compose seams in the
+  # presentation tree — hosts consume those, never this Module struct.
+  - "src/module.rs"
+
+  # The declared public tree (catalog reads, cart verbs, checkout verbs,
+  # bind/adopt). The module does NOT self-mount this — the host nests it
+  # bare of company_auth at /api/v1/storefront.
+  - "src/presentation/http/public_routes.rs"
+
+  # The officer tree (settings, listings, prices, abandoned + recovery,
+  # checkout reads). The host mounts it behind company_auth with the
+  # module-write gate keyed "storefront" as the innermost route layer.
+  - "src/presentation/http/admin_routes.rs"
+
+  # The migration contract is THREE named files (core schema, hardening
+  # partial uniques, audit triggers) consolidated by hand from the
+  # generated per-table DDL. Regen never re-emits per-table migrations
+  # into this tree.
+  - "migrations/**"
+
+  # Hand-authored module documentation (root docs; the spec itself is
+  # docs/spec.md — tracked under the docs glob below).
+  - "README.md"
+  - "docs/**"
+
+  # The fail-hard probe suite (fresh scratch DB per test on 5433; a
+  # missing scratch Postgres panics the suite rather than skipping).
+  - "tests/**"

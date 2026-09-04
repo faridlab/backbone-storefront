@@ -1,0 +1,91 @@
+# =============================================================================
+# storefront — the place record: CheckoutSession.
+#
+# PORT DECISIONS (source: docs/odoo/website/ecommerce — docs/spec.md §3.7/§7):
+#  - One row per PLACE, minted inside the cart row lock with the LOCKED
+#    final total (amount_total = the port-resolved total at place, equal
+#    to the minted order's total and the gateway tx gross — the probe
+#    asserts all three agree on every trial).
+#  - `provider_reference` is the storefront-minted 'stf-{checkout_id}'
+#    handed to the gateway row as provider_transaction_id — the reference
+#    the provider reports back and the settle path resolves by.
+#  - The paid arm starts 'pending_payment' and is stamped 'settled' by
+#    the host-side settlement consumer riding the gateway's existing
+#    GatewayTransactionSettled seam; the free arm is born
+#    'confirmed_free'. An UNPAID order is never auto-confirmed.
+# =============================================================================
+
+models:
+
+  - name: CheckoutSession
+    collection: checkout_sessions
+    read_only: true
+    description: "CheckoutSession — the durable place record: the minted sales order link, the pending gateway transaction (paid arm), the locked final total, and the checkout lifecycle state. Read-only over HTTP: written only by the place/express verbs and the settlement consumer."
+    fields:
+      id:
+        type: uuid
+        attributes: ["@id", "@default(uuid)"]
+        description: "Unique record id (the reference stem: the provider reference is 'stf-{this id}')"
+      cart_id:
+        type: uuid
+        attributes: ["@required", "@foreign_key(Cart.carts)", "@indexed"]
+        description: "The placed cart (real intra-schema FK, CASCADE)."
+      website_id:
+        type: uuid
+        attributes: ["@required", "@indexed", "@exclude_from_foreign_key_check"]
+        description: "LOGICAL ref website.websites(id) — the website the checkout ran on."
+      sales_order_id:
+        type: uuid?
+        attributes: ["@exclude_from_foreign_key_check"]
+        description: "LOGICAL ref selling.sales_orders(id) — stamped by the place verb (the one-time priced-order mint)."
+      gateway_transaction_id:
+        type: uuid?
+        attributes: ["@indexed", "@exclude_from_foreign_key_check"]
+        description: "LOGICAL ref the gateway transaction row created inside the same lock (paid arm only; UNIQUE among live rows — the settlement consumer resolves by it). NULL on the free arm."
+      provider_code:
+        type: string?
+        attributes: ["@max(20)"]
+        description: "The gateway provider code the pending transaction was created under (the company's active provider)."
+      provider_reference:
+        type: string?
+        attributes: ["@max(80)"]
+        description: "The storefront-minted 'stf-{checkout_id}' reference — what the gateway row carries as provider_transaction_id and the provider reports back."
+      amount_total:
+        type: decimal
+        attributes: ["@required", "@precision(18,2)", "@non_negative"]
+        description: "The LOCKED final total (decimal(18,2)) — recorded under the row lock; equals the minted order's total and the gateway tx gross, re-checked by the gateway's verified-settle money gate."
+      state:
+        type: StorefrontCheckoutState
+        attributes: ["@required", "@default(pending_payment)"]
+        lifecycle:
+          shape: hand_set
+          # No `state_machine:` ref — deliberate, recorded. Edges:
+          # ->confirmed_free (the free arm at place), ->settled (the
+          # settlement consumer, idempotent), ->failed / ->cancelled
+          # (the cancel mirror and operator reconciliation). Terminal
+          # states never flip back.
+        description: "THE checkout state: 'pending_payment' (order minted, awaiting settlement), 'confirmed_free' (zero-total arm, confirmed at place), 'settled', 'failed', 'cancelled'."
+      placed_at:
+        type: datetime?
+        description: "When the place verb committed (inside the lock)."
+      settled_at:
+        type: datetime?
+        description: "Stamped by the settlement consumer when the gateway settles the checkout's transaction (exactly once — idempotent on redelivery)."
+      metadata:
+        type: Metadata
+        attributes: ["@audit_metadata"]
+        description: "Audit metadata"
+
+    relations:
+      cart:
+        type: Cart
+        attributes: ["@one", "@foreign_key(cart_id)", "@on_delete(cascade)"]
+        description: "The owning cart (real FK storefront.cart_lines.cart_id -> storefront.carts, cascade)"
+
+    indexes:
+      - type: index
+        fields: [cart_id]
+        description: "The per-cart checkout reads"
+      - type: index
+        fields: [website_id, state]
+        description: "The officer checkout reads per website"

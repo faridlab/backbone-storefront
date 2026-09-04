@@ -1,0 +1,50 @@
+# =============================================================================
+# storefront — the deterministic email->party map: ShopperParty.
+#
+# PORT DECISIONS (source: docs/odoo/website/ecommerce — docs/spec.md §3.6):
+#  - The MAP IS THE RECORD: resolution is INSERT ... ON CONFLICT DO
+#    NOTHING RETURNING, on conflict SELECT by the unique key — race-free,
+#    no check-then-act, no string-containment placeholder detection.
+#    Parties created through it are first-class customers, never
+#    "placeholders".
+#  - Deliberately scoped to the storefront's own map (company, email) —
+#    no sudo-search over all parties. (party's own party_emails carries
+#    a global UNIQUE(email) upstream fact; the storefront does not rely
+#    on it for dedup.)
+#  - The party MINT itself goes through the PartyWritePort (the host
+#    wires it over the party domain); this table only binds the
+#    deterministic resolution.
+# =============================================================================
+
+models:
+
+  - name: ShopperParty
+    collection: shopper_parties
+    read_only: true
+    description: "ShopperParty — the deterministic (company, normalized email) -> party binding for express checkout and billing capture. Exactly one party per shopper email per company, resolved race-free; the map row is the record of the resolution. Read-only over HTTP: written only by the billing-capture and express verbs through the PartyWritePort."
+    fields:
+      id:
+        type: uuid
+        attributes: ["@id", "@default(uuid)"]
+        description: "Unique record id"
+      company_id:
+        type: uuid
+        attributes: ["@required", "@indexed", "@exclude_from_foreign_key_check", "@global"]
+        description: "The owning company (derived from the cart's website) — the map is per-company, never global. Marked @global and NOT a fence: the module declares company_fence: none (ADR-0014 posture 4 — visibility is the verb surface + the identity binding), and this column is the deterministic resolution KEY, not an RLS fence."
+      email_normalized:
+        type: string
+        attributes: ["@required", "@max(320)"]
+        description: "The normalized shopper email (trimmed, lowercased). UNIQUE with company_id among live rows (the hardening migration)."
+      party_id:
+        type: uuid
+        attributes: ["@required", "@exclude_from_foreign_key_check"]
+        description: "LOGICAL ref party.parties(id) — the first-class customer party minted through the PartyWritePort on first resolution."
+      metadata:
+        type: Metadata
+        attributes: ["@audit_metadata"]
+        description: "Audit metadata"
+
+    indexes:
+      - type: index
+        fields: [company_id, email_normalized]
+        description: "The deterministic resolution lookup (unique among live rows via the hardening migration)"

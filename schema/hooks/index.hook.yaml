@@ -1,0 +1,56 @@
+# storefront Module - Hooks Index
+# Version: 1
+#
+# Module-level configuration for hooks (lifecycle behaviors).
+#
+# This index carries the ZERO-outbox-event declaration and the ZERO-job
+# declaration (abandoned carts are a derived read; recovery is an
+# explicit verb — nothing owns a clock in this module).
+
+module: storefront
+version: 1
+
+# The storefront module declares no hook files: no state machines (the
+# hand-set lifecycle columns are declared in their model files'
+# lifecycle blocks), no rules, no triggers, no computed fields.
+imports: []
+
+# =============================================================================
+# Module-level configuration
+# =============================================================================
+config:
+  audit:
+    retention_days: 365
+    critical_events:
+      - listing_published      # the fence verb — publish state changed
+      - listing_unpublished    # the fence verb — publish state changed
+      - publish_refused        # a publish-fenced field patch attempt refused
+      - cart_placed            # an order was minted under the row lock
+      - checkout_settled_confirmed  # settlement confirmed an order
+
+  notifications:
+    email_enabled: false
+    sms_enabled: false
+    push_enabled: false
+
+# =============================================================================
+# Shared domain events
+# =============================================================================
+# ZERO storefront-owned outbox events by design. The module owns NO
+# outbox table and subscribes to NONE; the host's outbox_schemas
+# producer set carries no storefront entry (absence is the truthful
+# posture — adding one would arm a relay runner that can never drain
+# anything). The settlement->confirm leg is a HOST-side consumer over
+# the gateway's existing GatewayTransactionSettled seam (the same
+# consumption the gateway settlement ACL rides), not a module bus.
+events: {}
+
+# =============================================================================
+# Scheduled jobs (ADR-0020 postures)
+# =============================================================================
+# ZERO scheduled jobs — nothing in this module owns a clock. Abandoned
+# carts are a DERIVED read (state='open' AND updated_at older than the
+# ONE delay constant, computed fresh per read); recovery is an explicit
+# verb (shopper re-bind or officer send). No cron flips any flag — no
+# stored abandonment flag exists to flip.
+scheduled_jobs: {}

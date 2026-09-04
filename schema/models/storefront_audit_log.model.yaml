@@ -1,0 +1,137 @@
+# =============================================================================
+# storefront — the audit vocabulary: StorefrontAuditLog (the portal shape).
+#
+# PORT DECISIONS (source: docs/odoo/website/ecommerce — docs/spec.md §3.9):
+#  - Append-only, service-emitted by the verbs. Rows are never updated,
+#    never deleted by application code.
+#  - The closed event vocabulary carries every security-relevant edge —
+#    a refused publish-field patch lands here as PUBLISH_REFUSED, so a
+#    refused write is still a durable fact (the website precedent).
+# =============================================================================
+
+models:
+
+  - name: StorefrontAuditLog
+    collection: storefront_audit_log
+    read_only: true
+    description: "StorefrontAuditLog — the durable verb trail. Append-only: every cart create/adopt, line write, coupon apply/remove, billing/delivery set, place, free confirm, settled confirm, cancel, recovery send, listing publish/unpublish (and publish-field patch refusal), price set, and settings set lands as one row with its structured detail."
+    fields:
+      id:
+        type: uuid
+        attributes: ["@id", "@default(uuid)"]
+        description: "Unique record id"
+      website_id:
+        type: uuid?
+        attributes: ["@indexed", "@exclude_from_foreign_key_check"]
+        description: "LOGICAL ref website.websites(id) — the website the verb ran on (NULL for system edges)."
+      event:
+        type: StorefrontAuditEvent
+        attributes: ["@required", "@indexed"]
+        description: "WHAT happened — the closed enum (one row shape per security-relevant edge)."
+      actor:
+        type: uuid?
+        attributes: ["@exclude_from_foreign_key_check"]
+        description: "WHO performed it — the acting officer (logical ref; officers authenticate through the host's company_auth) or NULL for shopper/system edges."
+      subject_type:
+        type: string?
+        attributes: ["@max(120)"]
+        description: "The subject's entity kind ('cart', 'cart_line', 'listing', 'price', 'settings', 'checkout_session', 'recovery_invite')."
+      subject_id:
+        type: uuid?
+        attributes: ["@exclude_from_foreign_key_check"]
+        description: "The subject's id, when the subject is a row."
+      detail:
+        type: json?
+        description: "Structured context (totals, refusal reasons, template refs, carrier ids) — facts only."
+      occurred_at:
+        type: datetime
+        attributes: ["@required", "@default(now)"]
+        description: "When the edge happened."
+
+    indexes:
+      - type: index
+        fields: [event, occurred_at]
+        description: "The per-event-kind timeline read"
+
+enums:
+  - name: StorefrontAuditEvent
+    description: "The closed audit vocabulary — every verb edge, including refusals"
+    variants:
+      - name: cart_created
+        description: "The deterministic create verb minted (or returned) the identity's open cart"
+        default: true
+      - name: cart_adopted
+        description: "The explicit adopt verb re-bound a principal-linked open cart to the current session"
+      - name: line_added
+        description: "A cart line was added through the typed verb (gate re-checked)"
+      - name: line_updated
+        description: "A line's quantity was set through the typed verb"
+      - name: line_removed
+        description: "A line was removed through the typed verb"
+      - name: coupon_applied
+        description: "A coupon code was applied through the POST apply verb"
+      - name: coupon_removed
+        description: "The coupon was cleared through the POST remove verb"
+      - name: billing_set
+        description: "Billing capture resolved the shopper party and re-priced in-verb (under the row lock)"
+      - name: delivery_set
+        description: "The delivery carrier was set under the cart row lock"
+      - name: cart_placed
+        description: "The place verb minted the priced order + checkout session under the row lock"
+      - name: checkout_confirmed_free
+        description: "A zero-total place confirmed its order directly (no gateway row)"
+      - name: checkout_settled_confirmed
+        description: "The settlement consumer stamped a checkout settled and confirmed its order (idempotent)"
+      - name: cart_cancelled
+        description: "The cancel mirror cancelled the order and stamped the checkout cancelled"
+      - name: recovery_sent
+        description: "The explicit officer recovery send ran (delivery_state carries the outcome)"
+      - name: listing_upserted
+        description: "The officer merchandising upsert wrote a listing row (born unpublished)"
+      - name: listing_published
+        description: "The publish verb flipped a listing's is_published to true"
+      - name: listing_unpublished
+        description: "The unpublish verb flipped a listing's is_published to false"
+      - name: publish_refused
+        description: "A generic patch carrying a publish-fenced field refused (typed 422)"
+      - name: price_set
+        description: "The officer price verb set a per-website price row"
+      - name: settings_set
+        description: "The officer settings verb set (or bootstrapped) a website's sale settings"
+
+  - name: StorefrontCartState
+    description: "The cart lifecycle: open draft, placed (order minted), closed, cancelled"
+    variants:
+      - name: open
+        description: "The mutable draft — the partial-unique state (one open cart per visitor)"
+        default: true
+      - name: placed
+        description: "The place verb minted the order and checkout session (under the row lock)"
+      - name: closed
+        description: "Terminal completed state"
+      - name: cancelled
+        description: "Terminal cancelled state (the cancel mirror)"
+
+  - name: StorefrontCheckoutState
+    description: "The checkout lifecycle from place to settlement"
+    variants:
+      - name: pending_payment
+        description: "Order minted, pending gateway transaction awaiting settlement (the paid arm's birth state)"
+        default: true
+      - name: confirmed_free
+        description: "Zero-total arm: confirmed at place with no gateway row"
+      - name: settled
+        description: "The settlement consumer stamped the gateway settle and confirmed the order"
+      - name: failed
+        description: "The payment attempt failed"
+      - name: cancelled
+        description: "The cancel mirror stamped the checkout cancelled"
+
+  - name: StorefrontAccessGate
+    description: "The per-website B2B access gate"
+    variants:
+      - name: open
+        description: "Anonymous shoppers served (the default)"
+        default: true
+      - name: members_only
+        description: "Every public catalog/cart/checkout verb requires a verified portal principal (typed 401 otherwise)"

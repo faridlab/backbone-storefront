@@ -1,0 +1,55 @@
+# =============================================================================
+# storefront — the per-website price rows: ProductPrice.
+#
+# PORT DECISIONS (source: docs/odoo/website/ecommerce — docs/spec.md §3.2/§5):
+#  - No module in the tree owns a product list price (catalog carries
+#    status only, no prices), so the per-website pricelist's BASE arm
+#    lands HERE; rules/discounts on top stay promo's, consumed only
+#    through selling's CartPricingPort as the host composes it.
+#  - `list_price` is the base arm the pricing mapping feeds the port per
+#    line; `compare_at_price` is the merchandising display (NULL = not
+#    shown). Both are officer data through the typed verb.
+#  - One live row per (website_id, item_id) — the partial unique in the
+#    hardening migration.
+# =============================================================================
+
+models:
+
+  - name: ProductPrice
+    collection: product_prices
+    read_only: true
+    description: "ProductPrice — the per-website base price row. The list price every cart read re-derives through the pricing port (no stored line prices anywhere in the cart grain); the compare-at price is the merchandising display. Read-only over HTTP: set only through the typed officer price verb."
+    fields:
+      id:
+        type: uuid
+        attributes: ["@id", "@default(uuid)"]
+        description: "Unique record id"
+      website_id:
+        type: uuid
+        attributes: ["@required", "@indexed", "@exclude_from_foreign_key_check"]
+        description: "LOGICAL ref website.websites(id) — the website this price row belongs to."
+      item_id:
+        type: uuid
+        attributes: ["@required", "@indexed", "@exclude_from_foreign_key_check"]
+        description: "LOGICAL ref catalog.items(id) — the priced product."
+      list_price:
+        type: decimal
+        attributes: ["@required", "@precision(18,2)", "@non_negative"]
+        description: "The base unit price (decimal(18,2), non-negative) — the per-website pricelist's base arm fed to the cart-pricing port per line."
+      compare_at_price:
+        type: decimal?
+        attributes: ["@precision(18,2)"]
+        description: "The merchandising compare-at display price; NULL = not shown. Never used in any charged total."
+      currency:
+        type: string
+        attributes: ["@required", "@default('IDR')", "@max(3)"]
+        description: "ISO-4217 code of the price row (3 chars)."
+      metadata:
+        type: Metadata
+        attributes: ["@audit_metadata"]
+        description: "Audit metadata"
+
+    indexes:
+      - type: index
+        fields: [website_id, item_id]
+        description: "The per-(website, item) base-price lookup the pricing mapping reads"
