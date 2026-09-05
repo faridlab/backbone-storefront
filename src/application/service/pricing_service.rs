@@ -14,6 +14,11 @@
 //! | per-line `list_price` | this website's `product_prices` row |
 //! | tax | NOT a port field — fiscal resolution is order-level (§5.3, the tax port) |
 //!
+//! REWARD LINES: the port's `reward_lines` (a coupon's "buy X get Y"
+//! grant) surface on the view for DISPLAY only — the place-time mint
+//! already appends them to the order as zero-priced lines, so the view
+//! names them and never prices them.
+//!
 //! The port instance is the HOST-composed adapter over promo (one
 //! adapter, two consumers — never a second mapping; the module takes no
 //! promo edge). [`price_cart`] is THE single derivation: display reads
@@ -59,6 +64,9 @@ pub struct SaleSettingsRow {
     pub default_customer_group_id: Option<Uuid>,
     pub guest_party_id: Uuid,
     pub recovery_template_ref: Option<String>,
+    /// The DISPLAY-scope warehouse for availability reads (NULL = the
+    /// company aggregate).
+    pub display_warehouse_id: Option<Uuid>,
 }
 
 /// The website's live sale-settings row, if one exists.
@@ -69,7 +77,8 @@ pub async fn settings_for(
     sqlx::query_as::<_, SaleSettingsRow>(
         r#"
         SELECT id, website_id, access_gate::text AS access_gate,
-               default_customer_group_id, guest_party_id, recovery_template_ref
+               default_customer_group_id, guest_party_id, recovery_template_ref,
+               display_warehouse_id
         FROM storefront.website_sale_settings
         WHERE website_id = $1 AND (metadata->>'deleted_at') IS NULL
         LIMIT 1
@@ -136,6 +145,21 @@ pub struct DisplayLine {
     pub unavailable: bool,
 }
 
+/// One promo reward line surfaced for display: the granted reward item
+/// and its quantity. Rewards price at ZERO by construction — the
+/// place-time mint appends them as zero-priced order lines (selling's
+/// priced mint) — so this view only NAMES them; the subtotal above
+/// never includes them.
+#[derive(Debug, Clone)]
+pub struct RewardLineView {
+    pub item_id: Uuid,
+    /// The catalog's display name for the reward item (resolved through
+    /// the catalog port, never client-supplied; empty only when the
+    /// item vanished from the catalog between price and display).
+    pub name: String,
+    pub quantity: Decimal,
+}
+
 /// The freshly derived priced-cart view every priced read serves
 /// (display reads and the place-time mint use the SAME derivation).
 #[derive(Debug, Clone)]
@@ -148,6 +172,10 @@ pub struct PricedCartView {
     pub currency: String,
     pub customer_group_id: Option<Uuid>,
     pub coupon_code: Option<String>,
+    /// The coupon's granted reward lines, when the applied code mints
+    /// them (a "buy X get Y" grant) — display-only companions of the
+    /// priced basket; the order mint carries them as zero-priced lines.
+    pub reward_lines: Vec<RewardLineView>,
     /// The priced request's unavailable-line count (0 on the happy
     /// path; >0 means the place verb will refuse — surfaced so reads
     /// can render the state honestly).
@@ -191,7 +219,7 @@ pub async fn price_cart(
         .item_snapshots(company_id, &item_ids)
         .await
         .map_err(|e| StorefrontError::CatalogPortRefused { code: e.code })?;
-    let by_item: HashMap<Uuid, _> = snapshots.into_iter().map(|s| (s.item_id, s)).collect();
+    let mut by_item: HashMap<Uuid, _> = snapshots.into_iter().map(|s| (s.item_id, s)).collect();
 
     // The group dimension (party segment ELSE website default).
     let group_id =
@@ -252,6 +280,7 @@ pub async fn price_cart(
             currency: or_idr(currency),
             customer_group_id: group_id,
             coupon_code: cart.coupon_code.clone(),
+            reward_lines: Vec::new(),
             unavailable_count,
         });
     }
@@ -285,6 +314,38 @@ pub async fn price_cart(
         subtotal += priced_line.net_line_total;
     }
 
+    // Reward lines (a "buy X get Y" grant): names resolved through the
+    // SAME catalog port. A reward item that is not also a cart line was
+    // not in the first snapshot batch — resolve it in a second call
+    // rather than rendering a nameless row (and never a client string).
+    let mut reward_lines = Vec::with_capacity(priced.reward_lines.len());
+    if !priced.reward_lines.is_empty() {
+        let missing: Vec<Uuid> = priced
+            .reward_lines
+            .iter()
+            .map(|r| r.item_id)
+            .filter(|item| !by_item.contains_key(item))
+            .collect();
+        if !missing.is_empty() {
+            let extra = catalog
+                .item_snapshots(company_id, &missing)
+                .await
+                .map_err(|e| StorefrontError::CatalogPortRefused { code: e.code })?;
+            for snapshot in extra {
+                by_item.insert(snapshot.item_id, snapshot);
+            }
+        }
+        for reward in &priced.reward_lines {
+            reward_lines.push(RewardLineView {
+                item_id: reward.item_id,
+                name: by_item
+                    .get(&reward.item_id)
+                    .map_or_else(String::new, |s| s.name.clone()),
+                quantity: reward.quantity,
+            });
+        }
+    }
+
     Ok(PricedCartView {
         cart_id: cart.id,
         lines: display,
@@ -292,6 +353,7 @@ pub async fn price_cart(
         currency: or_idr(currency),
         customer_group_id: group_id,
         coupon_code: cart.coupon_code.clone(),
+        reward_lines,
         unavailable_count,
     })
 }

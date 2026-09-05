@@ -54,6 +54,10 @@ models:
         type: decimal
         attributes: ["@required", "@precision(18,2)", "@non_negative"]
         description: "The LOCKED final total (decimal(18,2)) — recorded under the row lock; equals the minted order's total and the gateway tx gross, re-checked by the gateway's verified-settle money gate."
+      pickup_location_id:
+        type: uuid?
+        attributes: ["@foreign_key(PickupLocation.pickup_locations)", "@indexed"]
+        description: "REAL intra-schema FK — the Click & Collect pin this place ran under (stamped from the cart at place; NULL on delivery lanes). The pay-on-site lane records the pin here and NEVER confirms: state 'pending_pickup' mints the order DRAFT with no gateway row, and only the officer confirm-pickup verb (after the store took payment) confirms and stamps settled."
       state:
         type: StorefrontCheckoutState
         attributes: ["@required", "@default(pending_payment)"]

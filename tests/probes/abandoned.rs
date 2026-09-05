@@ -15,7 +15,7 @@ use backbone_storefront::application::service::checkout_service::{self, Checkout
 use backbone_storefront::application::service::recovery_service;
 
 use super::common::{
-    backdate_cart, seed_listing, seed_visitor, StubCatalog, StubNotifier, StubParty, StubPricing,
+    backdate_cart, seed_listing, seed_visitor, StubAvailability, StubCatalog, StubNotifier, StubParty, StubPricing,
     StubTax, TestDb,
 };
 
@@ -31,6 +31,7 @@ struct Rig {
     notifier: std::sync::Arc<StubNotifier>,
     party: std::sync::Arc<StubParty>,
     catalog: std::sync::Arc<StubCatalog>,
+    availability: std::sync::Arc<StubAvailability>,
 }
 
 async fn rig(marker: &str) -> Rig {
@@ -42,12 +43,14 @@ async fn rig(marker: &str) -> Rig {
     let party = std::sync::Arc::new(StubParty::new());
     let tax = std::sync::Arc::new(StubTax(Decimal::ZERO));
     let pricing = std::sync::Arc::new(StubPricing::new(Decimal::ONE, Vec::new()));
+    let availability = std::sync::Arc::new(StubAvailability::new());
     let deps = std::sync::Arc::new(CheckoutDeps::new(
         pool.clone(),
         catalog.clone(),
         party.clone(),
         tax.clone(),
         pricing.clone(),
+        availability.clone(),
     ));
     // The recovery template exists on the settings row.
     catalog_service::set_settings(
@@ -58,6 +61,7 @@ async fn rig(marker: &str) -> Rig {
             access_gate: "open".into(),
             default_customer_group_id: None,
             recovery_template_ref: Some("recovery/default-v1".into()),
+            display_warehouse_id: None,
         },
         ActorRef::system(),
     )
@@ -71,6 +75,7 @@ async fn rig(marker: &str) -> Rig {
         notifier: std::sync::Arc::new(StubNotifier::default()),
         party,
         catalog,
+        availability,
     }
 }
 
@@ -80,12 +85,13 @@ async fn the_derived_read_flips_exactly_at_the_one_constant() {
     let pool = &rig.db.pool;
     let (visitor, _token) = seed_visitor(pool, rig.website.id).await;
     let item = seed_listing(pool, &rig.catalog, rig.website.id, "Clock", Decimal::new(1000, 2), true).await;
+    rig.availability.stock(item, Decimal::new(10000, 0));
 
     let cart = cart_service::create_cart(pool, rig.website.id, visitor)
         .await
         .unwrap()
         .cart;
-    cart_service::add_line(pool, rig.catalog.as_ref(), rig.company, &cart, item, Decimal::ONE)
+    cart_service::add_line(pool, rig.catalog.as_ref(), rig.availability.as_ref(), rig.company, &cart, item, Decimal::ONE)
         .await
         .unwrap();
 
@@ -136,12 +142,13 @@ async fn recovery_sends_and_a_later_gained_email_still_qualifies() {
     let pool = &rig.db.pool;
     let (visitor, _token) = seed_visitor(pool, rig.website.id).await;
     let item = seed_listing(pool, &rig.catalog, rig.website.id, "Lamp", Decimal::new(2000, 2), true).await;
+    rig.availability.stock(item, Decimal::new(10000, 0));
 
     let cart = cart_service::create_cart(pool, rig.website.id, visitor)
         .await
         .unwrap()
         .cart;
-    cart_service::add_line(pool, rig.catalog.as_ref(), rig.company, &cart, item, Decimal::ONE)
+    cart_service::add_line(pool, rig.catalog.as_ref(), rig.availability.as_ref(), rig.company, &cart, item, Decimal::ONE)
         .await
         .unwrap();
     backdate(pool, cart.id, 180).await;

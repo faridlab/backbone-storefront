@@ -17,13 +17,16 @@ user_owned:
   - "src/application/service/storefront_error.rs"
 
   # Host-wired ports (the composing-service posture): catalog reads,
-  # party mint + segment lookup, order-level tax resolution, and the
-  # recovery notifier. Each owns its trait + refusing/unwired default;
-  # the host installs adapters over its own module handles.
+  # party mint + segment lookup, order-level tax resolution, the
+  # recovery notifier, the stock-alert notifier, and the availability
+  # reads (inventory/manufacturing composition). Each owns its trait +
+  # refusing/unwired default; the host installs adapters over its own
+  # module handles.
   - "src/application/service/catalog_read_port.rs"
   - "src/application/service/party_write_port.rs"
   - "src/application/service/tax_resolve_port.rs"
   - "src/application/service/notifier_port.rs"
+  - "src/application/service/availability_port.rs"
 
   # Cart verbs: deterministic create (partial-unique open cart per
   # visitor), read, explicit adoption, line add/set/remove with the
@@ -42,12 +45,31 @@ user_owned:
   # CartPricingPort DTOs) and the per-company cache invalidation.
   - "src/application/service/pricing_service.rs"
 
+  # The availability reads and the stock gate: two scopes (display vs
+  # checkout) computed fresh through the port, the line-mutation clamp,
+  # the place-time whole-basket gate, the per-listing backorder skip.
+  - "src/application/service/availability_service.rs"
+
   # Checkout verbs: the cart row lock (SELECT ... FOR UPDATE at
-  # place/delivery/billing/express), the one-time priced-order mint via
-  # selling's create_sales_order_priced, gateway transaction creation
-  # INSIDE the lock, the free arm, the settlement consumer (settle ->
-  # confirm), the cancel mirror, checkout reads.
+  # place/delivery/billing/express/pickup/reset), the one-time
+  # priced-order mint via selling's create_sales_order_priced, gateway
+  # transaction creation INSIDE the lock, the free arm, the pay-on-site
+  # lane (pending_pickup, never auto-confirmed) with its officer
+  # confirm-pickup, the settlement consumer (settle -> confirm), the
+  # cancel mirror, checkout reads.
   - "src/application/service/checkout_service.rs"
+
+  # The Click & Collect store registry: merchant-declared pickup
+  # locations (no auto-mint from warehouses), the officer upsert, the
+  # public active-only lookup, and the pin verb's server-side
+  # resolution read. Coordinates are officer-input only — no geocode
+  # anywhere in the module.
+  - "src/application/service/collect_service.rs"
+
+  # The visitor-backed wishlist: visitor-owned rows with a reconciled
+  # principal stamp, the union read, the back-in-stock arm, and the
+  # officer demand read + explicit send (the smallest honest surface).
+  - "src/application/service/wishlist_service.rs"
 
   # Abandoned carts: the derived read (computed fresh per call off the
   # ONE delay constant) + the explicit officer recovery verb.

@@ -879,6 +879,245 @@ happens at the pass's register re-audit.
 
 ---
 
+## 14. The shopper-companions increment (availability warehouse pivot, Click & Collect, pay-on-site, wishlist, comparison, back-in-stock)
+
+### 14.0 Shape decision (recorded before the code)
+
+**The companions are an INCREMENT of this module, not a new `storefront-companions` module.**
+Reasons, in order of weight:
+
+1. Every companion is a verb of the shopper session this module already
+   owns — the identity ladder (§2.1), the publish gate (§4), the cart row
+   lock (§7.1), the fixed-window throttle (§6), and the audit stamp are
+   the load-bearing walls each companion leans on. A separate module
+   would either take a cargo edge back onto `backbone-storefront` (a
+   cycle-shaped dependency the workspace forbids) or fork all five
+   fences (drift, the anti-pattern the workspace bans).
+2. The P0 condition C7 design gate already ruled this module owns the
+   storefront domain; the companions ARE storefront domain.
+3. The module's cargo edges stay at four (website, selling,
+   payment-gateway, backbone-orm/website-audit via website). No new edge:
+   availability rides a HOST-composed port exactly like catalog/party/tax
+   (the P1 posture), and the MRP bridge folds into that same port as a
+   flag — the storefront never links manufacturing directly.
+
+### 14.1 Availability: the warehouse pivot, two scopes, computed fresh
+
+The module stores NO stock snapshot and NO persisted shop-warning row
+(the persisted-warning shape is deliberately not ported). All numbers
+come fresh through `AvailabilityReadPort`:
+
+```
+free_quantity(company_id, item_id, warehouse_id: Option<Uuid>) -> ItemAvailability
+free_quantities(company_id, item_ids, warehouse_id) -> Vec<ItemAvailability>
+ItemAvailability { item_id, free_quantity: Decimal, kit_exploded: bool }
+```
+
+- **DISPLAY scope** = the website's `display_warehouse_id` sale setting
+  (NULL = the company aggregate — a documented, officer-visible
+  semantic). Serves the public availability read and the comparison.
+- **CHECKOUT scope** = the cart's fulfillment scope: the pinned pickup
+  location's warehouse for a pickup cart, else the company aggregate.
+  Serves the line-mutation clamp and the place-time gate.
+- **The stock gate**: `add_line`/`set_line_quantity` refuse the typed 422
+  `storefront_stock_insufficient` when the RESULTING quantity exceeds the
+  checkout-scope free quantity; `place` re-checks EVERY line under the
+  row lock (the whole basket, never just the first line). A listing
+  flagged `allow_backorder` (officer verb) skips the gate — made-to-order
+  listings stay orderable.
+- **Fail-closed**: the unwired port (`RefusingAvailabilityReadPort`,
+  code `availability_port_unwired`) refuses clamped mutations and places
+  with the typed 503 — never a silent zero/infinite fallback. An adapter
+  that omits a requested line is itself a refusal
+  (`availability_port_incomplete`) — the gate never guesses stock.
+- **The MRP bridge folds in**: `kit_exploded` on the answer. The HOST
+  composes the adapter over inventory availability and, for kit/BOM
+  items, the manufacturing explode; a kit that cannot explode presents
+  its un-exploded availability and the flag false. The storefront never
+  calls manufacturing directly and never offers an anonymous MRP oracle
+  (the public read sits behind the publish gate — §4).
+- **Reward lines surfaced**: `PricedCartView` gains `reward_lines`
+  (item/name/quantity) mapped from the pricing port's reward grant.
+  Display-only — selling's priced mint already appends them to the order
+  as zero-priced lines; the view never prices them and the subtotal
+  never includes them.
+
+### 14.2 Click & Collect: merchant-declared stores, a server-side pin, a third payment lane
+
+- **`pickup_locations`** is a MERCHANT-DECLARED registry: a store exists
+  only through the officer upsert verb (`location_upserted` audit).
+  Nothing auto-mints locations from the company's warehouses. Name is
+  unique per website among live rows; deactivation (`is_active=false`)
+  is the lifecycle (the carts FK is ON DELETE RESTRICT — a store with
+  pins is deactivated, never silently deleted). Coordinates are
+  OFFICER-INPUT ONLY; **no route geocodes and no third-party outbound
+  call exists anywhere in the module** (the public-geocode shape is
+  fenced — §14.5).
+- **The upsert's fences (decision, recorded)**: the fiscal country is
+  REQUIRED merchant-declared input — a 2-letter ISO code validated
+  unconditionally (a create that omits it refuses; a patch may only
+  replace it with another valid code); the column is NOT NULL and the
+  place verb keeps a typed refusal as the code-level guard behind the
+  constraint (see the fiscal bullet below). The warehouse pointer,
+  when present, must name one of the TARGET WEBSITE's company's live
+  warehouses — a foreign company's (or a missing) warehouse id is the
+  typed 422 `storefront_pickup_warehouse_refused`, because a store
+  that fulfilled from another company's warehouse would promise stock
+  it can never read; the check reads `inventory.warehouses` inside the
+  website's company RLS scope. And the target website itself must be a
+  live row (an unknown or deleted website id is the typed 404 — the
+  registry never mints rows against dangling websites).
+- **The officer-write grain (decision, recorded)**: the write scopes to
+  the TARGET WEBSITE's company, not to an officer's own company. The
+  module's admin surface deliberately carries no officer-company
+  identity (the audit actor is a stamp, not an authorization
+  principal) — which officers may reach the admin tree at all, and of
+  which companies, is the HOST's authentication fence around that tree
+  (the composition contract mounts it behind the host's company
+  auth). Within the module, everything on a store row must cohere
+  with the target website's company (the website fence and the
+  warehouse fence above); an officer writing another company's
+  registry is therefore possible only through the host's auth, never
+  through a module-level dangling reference.
+- **The public lookup** (`GET /public/collect/locations`) is a PURE
+  read: active stores of the bound website. It switches NO carrier and
+  mints NO cart. The row's `warehouse_id` never leaves the server in the
+  public answer — the shopper sees a store, not a warehouse.
+- **The pin** (`POST /public/cart/pickup`) is a locked cart verb
+  (`pickup_set` audit): the client presents ONLY the opaque `location_id`;
+  warehouse, address, and fiscal country resolve SERVER-SIDE from this
+  module's own row, validated live+active+same-website (closed-door 404
+  otherwise). `POST /public/cart/pickup/reset` returns the cart to
+  delivery (`fulfillment_mode_reset` audit).
+- **Fiscal**: a pickup cart's place resolves tax jurisdiction through the
+  tax port with the STORE'S country (the store is where the sale
+  happens); a delivery cart keeps the company's default jurisdiction
+  (the port's no-jurisdiction home arm). The store's country is
+  REQUIRED merchant-declared input precisely because of this: a
+  countryless store has no defensible tax arm — the only arm it could
+  reach is the delivery/home jurisdiction, a silent wrong-country tax
+  on every pickup order. The country is therefore a NOT NULL column,
+  a required field at the officer upsert (validated as a 2-letter ISO
+  code unconditionally), and — as the code-level guard behind those
+  fences — a place whose pinned store somehow lacks a country refuses
+  with the typed 422 `storefront_pickup_country_missing`, never a
+  fallback. The home arm (`resolve_rate(company_id, None)`) is
+  unreachable for pickup orders by construction.
+- **Pay-on-site is a THIRD checkout lane** (`POST
+  /public/checkout/on-site`): the order mints DRAFT with NO gateway row,
+  the session lands `pending_pickup`, and **NOTHING auto-confirms it** —
+  not the lane, not a webhook, not a cron. The ONLY confirmer is the
+  officer verb (`POST /admin/checkouts/:id/confirm-pickup`,
+  `pickup_confirmed` audit, optional receipt note in metadata), run after
+  the store took the physical payment. A zero-total on-site cart takes
+  the SAME lane (one uniform arm beats a mixed free/on-site fork). The
+  lane requires a pickup-mode cart (`storefront_pickup_mode_required`).
+  The cancel mirror still retires abandoned pickups.
+
+### 14.3 The wishlist (visitor-backed) and the back-in-stock disposition
+
+- **Ownership** (the durable shape, NOT a session curiosity): every wish
+  row keys on `(website_id, visitor_id NOT NULL, item_id)` UNIQUE among
+  live rows — `visitor_id` is the ownership key, the visitor's anonymous
+  list is first-class. `portal_user_id` is a RECONCILED STAMP: the
+  login-time verb (`POST /public/wishlist/reconcile`,
+  `wishlist_reconciled` audit) stamps the visitor's rows with the
+  verified principal. The read is the UNION of the visitor's rows and
+  the principal-stamped rows, website-scoped. **Rows never move** — no
+  anonymous→account migration exists, so a merge can never lose or
+  double-count a wish; two devices reconcile onto one account and the
+  union is idempotent by construction.
+- **Verbs**: `GET/POST /public/wishlist` (add is publish-gated and
+  idempotent, `wishlist_added`), `POST /public/wishlist/:item_id/remove`
+  (the caller's own row or a principal-stamped row — typed 404
+  otherwise), `POST /public/wishlist/:item_id/notify` (arm), reconcile.
+  No price snapshot is stored anywhere — the wishlist is a list of
+  item ids, nothing else.
+- **The back-in-stock disposition** (the smallest honest surface —
+  build, not defer): a `notify_on_stock` arm on the wish row itself;
+  `contact_email` written ONLY from a verified principal (never from a
+  request body); an officer demand read (`GET /admin/stock-wait`) that
+  recomputes per-item eligibility FRESH through the availability port;
+  and an officer EXPLICIT send (`POST /admin/stock-wait/:item_id/send`)
+  through `StockAlertNotifier` — the visible-unwired posture (an
+  uncomposed adapter records `delivery_state = "unwired"` loudly; it
+  does not refuse and does not drop). The send REFUSES unless the item
+  is actually back in stock (a fresh port read — no false "we restocked"
+  alerts). The arm clears ONLY on an accepted send; a transport error
+  leaves it set (a failed delivery never burns the shopper's one
+  notification). **Zero crons, zero webhooks** — no automatic trigger
+  exists anywhere in the module.
+
+### 14.4 Comparison: stateless, server-capped
+
+`GET /public/compare?item_id=…&item_id=…` is stateless (no table, no
+session residue). The cap is SERVER-side: default 4, env-tunable
+(`STOREFRONT_COMPARE_CAP`), hard-clamped 1..=20; an oversized request is
+the typed 422 `storefront_comparison_cap_exceeded` — never a silent
+truncation. Rows are publish-gate-filtered (a closed-door item is
+absent, indistinguishable from missing) and carry a fresh display-scope
+availability badge through the same port (fail-loud 503 unwired).
+
+### 14.5 Fences recorded with rationale (built-or-fenced disposition)
+
+| Shape | Disposition | Rationale |
+|---|---|---|
+| Public geocode / partner-address lookup (authenticated geocode + partner writes) | FENCED | Coordinates are officer-input only; a public geocode surface is a third-party outbound call this module must not own (the outbound-bridge posture). The officer upsert accepts typed coordinates — the store registry is the authenticated surface that remains. |
+| Newsletter / Places / IAP-adjacent bridges | FENCED (host-owned) | Each is an existing sibling module's own funnel surface; a storefront-side bridge would duplicate its intake. The storefront keeps no email list and no device registry; companions that need reach ride the notifier ports the host wires. |
+| Persisted shop warnings / stock snapshots | NOT PORTED | Every availability number is computed fresh (§14.1); a snapshot is a stale-price bug class applied to stock. |
+| Wishlist session-storage shape | NOT PORTED | The visitor-backed shape (§14.3) is the durable ruling; session-backed wishes evaporate on cookie loss and cannot reconcile. |
+| Anonymous MRP oracle | FENCED | Kit availability rides the publish-gated detail/availability reads only; no ungated BOM surface exists. |
+
+### 14.6 The increment's probe additions (fail-hard, same §13 posture)
+
+1. **Availability gate**: the unwired port refuses add/set/place with
+   the typed 503 (fail-closed proof); a short warehouse refuses the add
+   with the typed 422; `allow_backorder` skips; the place gate checks
+   EVERY line under the lock.
+2. **Collect probe**: officer upsert → public lookup (active-only,
+   warehouse hidden) → pin (server-side resolution, foreign store =
+   closed-door 404) → reset; the lookup switches no carrier and mints
+   no cart (CHECKSUMMED_TABLES proof). The upsert's fences have their
+   own legs: a foreign-company warehouse (and a missing warehouse id)
+   is the typed 422, an unknown website id is the typed 404, the
+   cross-company write against another company's website with that
+   company's own warehouse is accepted per the recorded officer-write
+   grain, and a create without a country (or with a non-ISO code)
+   refuses.
+3. **Fiscal-pin probe**: a recording tax stub keys DIFFERENT rates to
+   the store-country arm and the no-jurisdiction home arm; one pickup
+   place and one delivery place against otherwise-identical seeds must
+   resolve under `Some(store_country)` and `None` respectively (the
+   recording proves the arm; the two minted orders' `tax_rate` values
+   prove the arm reached the order), and a pinned store with no
+   country — seeded by relaxing the NOT NULL constraint on the
+   probe's own disposable database — refuses the place with the typed
+   fiscal guard while the tax port records NOTHING (the home arm is
+   unreachable for pickup orders, at the code level too).
+4. **Pay-on-site probe**: pickup cart → on-site place → session
+   `pending_pickup`, order DRAFT, NO gateway row; a delivery cart's
+   on-site place → 422; officer confirm-pickup → settled + order
+   confirmed exactly once (redelivery double-guard).
+5. **Wishlist MERGE probe**: visitor A adds (3 wishes) → principal P
+   reconcile on device A → device B (visitor B, same principal) adds →
+   the union read under B shows both sets, row counts unchanged, NO row
+   moved; remove-by-principal only touches the caller's visible rows.
+6. **Compare probe**: cap enforcement (5 ids against cap 4 → typed
+   422), closed-door absence, availability badge present.
+7. **Back-in-stock probe**: arm → officer demand read (fresh
+   eligibility, out-of-stock item ineligible) → send refuses on
+   out-of-stock, sends on restock, arm clears only on accepted send,
+   transport failure leaves the arm set.
+8. **Coupon/loyalty claim**: the claim path is the P1 server-side POST
+   (already proven); the reward-line surfacing probe asserts
+   `reward_lines` on the priced view while the mint carries them as
+   zero-priced order lines (single-use-code pricing stub).
+9. **Mutating-GET extension**: every NEW GET route joins the §11.3
+   checksum harness family; every new mutation is a POST (route-table
+   assertion).
+
+---
+
 *End of specification. The build seat scaffolds the module tree around this
 file's contract; the harness seat fills the §11 rulings and drives §13; the
 register seat transcribes §9.2's fence row and re-audits §12 by ID. Nothing

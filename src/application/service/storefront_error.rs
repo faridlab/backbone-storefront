@@ -13,6 +13,7 @@
 //!    Uniform refusal text on the coupon arm (no enumeration oracle).
 
 use thiserror::Error;
+use uuid::Uuid;
 
 /// The module error enum.
 #[derive(Debug, Error)]
@@ -162,6 +163,68 @@ pub enum StorefrontError {
     #[error("catalog reads are unavailable: {code}")]
     CatalogPortRefused { code: String },
 
+    // ── availability / stock gate (§14.1) ──────────────────────────────────
+
+    /// The availability port is unwired or refused — a clamped line
+    /// mutation or a place never promises stock it did not read
+    /// (fail-closed, never a zero/infinite fallback).
+    #[error("availability reads are unavailable: {code}")]
+    AvailabilityPortRefused { code: String },
+
+    /// The stock gate fired: the requested quantity exceeds the
+    /// checkout-scope free quantity (computed fresh at mutation time).
+    #[error("insufficient stock for item {item_id}: requested {requested}, available {available}")]
+    StockInsufficient {
+        item_id: Uuid,
+        requested: rust_decimal::Decimal,
+        available: rust_decimal::Decimal,
+    },
+
+    // ── Click & Collect (§14.2) ────────────────────────────────────────────
+
+    /// The pickup location does not exist, is inactive, or belongs to
+    /// another website (the shared closed-door shape on the public
+    /// tree).
+    #[error("no such pickup location")]
+    PickupLocationNotFound,
+
+    /// A pinned pickup store carries no fiscal country. The store's
+    /// country is the jurisdiction a pickup order's tax resolves under;
+    /// without it the only reachable arm would be the delivery/home
+    /// jurisdiction — a silent wrong-country tax, never a fallback. The
+    /// place refuses loudly instead (the code-level guard standing
+    /// behind the NOT NULL column).
+    #[error("the pickup store has no fiscal country; a pickup order cannot resolve tax without it")]
+    PickupCountryMissing,
+
+    /// The registry upsert's warehouse pointer does not name one of the
+    /// target website's company's warehouses (missing, deleted, or
+    /// another company's). A store that fulfilled from a foreign
+    /// company's warehouse would promise stock it can never read.
+    #[error("the pickup warehouse must belong to this website's company")]
+    PickupWarehouseRefused,
+
+    /// The on-site payment lane is only offered to a cart in pickup
+    /// mode — a shipping cart cannot promise payment at a store.
+    #[error("pay on site requires a pickup cart")]
+    PickupModeRequired,
+
+    /// An unknown payment lane reached the checkout body (the closed
+    /// vocabulary is online | on_site).
+    #[error("payment lane must be 'online' or 'on_site'")]
+    InvalidPaymentLane,
+
+    // ── wishlist / comparison (§14.3/§14.4) ────────────────────────────────
+
+    /// The identity's wishlist carries no such item (foreign rows are
+    /// indistinguishable from missing ones — never a silent success).
+    #[error("no such wishlist item")]
+    WishlistItemNotFound,
+
+    /// The comparison read's server-side cap fired.
+    #[error("comparison is capped at {cap} items (sent {requested})")]
+    ComparisonCapExceeded { cap: usize, requested: usize },
+
     // ── settings / recovery (§8) ───────────────────────────────────────────
 
     /// The website carries no sale-settings row yet (set it first).
@@ -230,6 +293,15 @@ impl StorefrontError {
             StorefrontError::TaxPortRefused { .. } => 503,
             StorefrontError::PartyPortRefused { .. } => 503,
             StorefrontError::CatalogPortRefused { .. } => 503,
+            StorefrontError::AvailabilityPortRefused { .. } => 503,
+            StorefrontError::StockInsufficient { .. } => 422,
+            StorefrontError::PickupLocationNotFound => 404,
+            StorefrontError::PickupCountryMissing => 422,
+            StorefrontError::PickupWarehouseRefused => 422,
+            StorefrontError::PickupModeRequired => 422,
+            StorefrontError::InvalidPaymentLane => 422,
+            StorefrontError::WishlistItemNotFound => 404,
+            StorefrontError::ComparisonCapExceeded { .. } => 422,
             StorefrontError::SettingsNotFound => 404,
             StorefrontError::RecoveryTemplateRequired => 422,
             StorefrontError::NoContactAddress => 422,
@@ -271,6 +343,15 @@ impl StorefrontError {
             StorefrontError::TaxPortRefused { .. } => "storefront_tax_port_refused",
             StorefrontError::PartyPortRefused { .. } => "storefront_party_port_refused",
             StorefrontError::CatalogPortRefused { .. } => "storefront_catalog_port_refused",
+            StorefrontError::AvailabilityPortRefused { .. } => "storefront_availability_port_refused",
+            StorefrontError::StockInsufficient { .. } => "storefront_stock_insufficient",
+            StorefrontError::PickupLocationNotFound => "storefront_pickup_location_not_found",
+            StorefrontError::PickupCountryMissing => "storefront_pickup_country_missing",
+            StorefrontError::PickupWarehouseRefused => "storefront_pickup_warehouse_refused",
+            StorefrontError::PickupModeRequired => "storefront_pickup_mode_required",
+            StorefrontError::InvalidPaymentLane => "storefront_invalid_payment_lane",
+            StorefrontError::WishlistItemNotFound => "storefront_wishlist_item_not_found",
+            StorefrontError::ComparisonCapExceeded { .. } => "storefront_comparison_cap_exceeded",
             StorefrontError::SettingsNotFound => "storefront_settings_not_found",
             StorefrontError::RecoveryTemplateRequired => "storefront_recovery_template_required",
             StorefrontError::NoContactAddress => "storefront_no_contact_address",
@@ -310,6 +391,7 @@ pub fn map_unique_violation(err: sqlx::Error) -> StorefrontError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use uuid::Uuid;
 
     #[test]
     fn lifecycle_and_identity_refusals_map_to_409() {
@@ -338,6 +420,42 @@ mod tests {
         assert_eq!(
             StorefrontError::PartyPortRefused { code: "unwired".into() }.http_status(),
             503
+        );
+        assert_eq!(
+            StorefrontError::AvailabilityPortRefused { code: "unwired".into() }.http_status(),
+            503
+        );
+    }
+
+    #[test]
+    fn companions_refusals_map_to_their_typed_statuses() {
+        use rust_decimal::Decimal;
+        assert_eq!(
+            StorefrontError::StockInsufficient {
+                item_id: Uuid::new_v4(),
+                requested: Decimal::TWO,
+                available: Decimal::ONE,
+            }
+            .http_status(),
+            422
+        );
+        assert_eq!(StorefrontError::PickupLocationNotFound.http_status(), 404);
+        assert_eq!(StorefrontError::PickupCountryMissing.http_status(), 422);
+        assert_eq!(
+            StorefrontError::PickupCountryMissing.code(),
+            "storefront_pickup_country_missing"
+        );
+        assert_eq!(StorefrontError::PickupWarehouseRefused.http_status(), 422);
+        assert_eq!(
+            StorefrontError::PickupWarehouseRefused.code(),
+            "storefront_pickup_warehouse_refused"
+        );
+        assert_eq!(StorefrontError::PickupModeRequired.http_status(), 422);
+        assert_eq!(StorefrontError::InvalidPaymentLane.http_status(), 422);
+        assert_eq!(StorefrontError::WishlistItemNotFound.http_status(), 404);
+        assert_eq!(
+            StorefrontError::ComparisonCapExceeded { cap: 4, requested: 5 }.http_status(),
+            422
         );
     }
 }

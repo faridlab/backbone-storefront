@@ -10,7 +10,7 @@ use backbone_storefront::application::service::cart_service;
 use backbone_storefront::application::service::checkout_service::{self, CheckoutDeps};
 
 use super::common::{
-    seed_listing, seed_provider, seed_visitor, StubCatalog, StubParty, StubPricing, StubTax, TestDb,
+    seed_listing, seed_provider, seed_visitor, StubAvailability, StubCatalog, StubParty, StubPricing, StubTax, TestDb,
 };
 
 #[tokio::test]
@@ -27,19 +27,22 @@ async fn zero_total_places_free_with_no_gateway_row() {
     let tax = std::sync::Arc::new(StubTax(Decimal::ZERO));
     let pricing = std::sync::Arc::new(StubPricing::new(Decimal::ONE, Vec::new()));
     let item = seed_listing(pool, &catalog, view.id, "Freebie", Decimal::ZERO, true).await;
+    let availability = std::sync::Arc::new(StubAvailability::new());
+    availability.stock(item, Decimal::new(10000, 0));
     let deps = CheckoutDeps::new(
         pool.clone(),
         catalog.clone(),
         party.clone(),
         tax.clone(),
         pricing.clone(),
+        availability.clone(),
     );
 
     let cart = cart_service::create_cart(pool, view.id, visitor)
         .await
         .unwrap()
         .cart;
-    cart_service::add_line(pool, catalog.as_ref(), company, &cart, item, Decimal::ONE)
+    cart_service::add_line(pool, catalog.as_ref(), availability.as_ref(), company, &cart, item, Decimal::ONE)
         .await
         .unwrap();
     let checkout = checkout_service::place(
@@ -102,19 +105,22 @@ async fn a_paid_place_stays_draft_until_settlement() {
         true,
     )
     .await;
+    let availability = std::sync::Arc::new(StubAvailability::new());
+    availability.stock(item, Decimal::new(10000, 0));
     let deps = CheckoutDeps::new(
         pool.clone(),
         catalog.clone(),
         party.clone(),
         tax.clone(),
         pricing.clone(),
+        availability.clone(),
     );
 
     let cart = cart_service::create_cart(pool, view.id, visitor)
         .await
         .unwrap()
         .cart;
-    cart_service::add_line(pool, catalog.as_ref(), company, &cart, item, Decimal::ONE)
+    cart_service::add_line(pool, catalog.as_ref(), availability.as_ref(), company, &cart, item, Decimal::ONE)
         .await
         .unwrap();
     let checkout = checkout_service::place(

@@ -1,0 +1,99 @@
+# =============================================================================
+# storefront — the Click & Collect registry: PickupLocation.
+#
+# PORT DECISIONS (source: docs/odoo/website/ecommerce/companions — the
+# click-and-collect cohort; docs/spec.md §14):
+#  - The registry is MERCHANT-DECLARED: a store exists only as this
+#    explicit officer row. Nothing auto-mints locations from the
+#    company's warehouses and no public verb writes here (the upstream
+#    "link every warehouse, pick [:1] unordered" shape is dead).
+#  - The CLIENT PRESENTS ONLY THE OPAQUE ID. warehouse_id, the address,
+#    and the fiscal jurisdiction are resolved SERVER-SIDE from this row
+#    by the pickup verb — client JSON pins nothing (the upstream
+#    unvalidated warehouse_id/fiscal_position JSON payload is dead).
+#  - country is REQUIRED merchant-declared input (2-letter ISO): it is
+#    the fiscal jurisdiction of every pickup order this store mints. A
+#    countryless store has no defensible tax arm — silence would resolve
+#    pickup orders under the delivery/home jurisdiction — so the upsert
+#    refuses to create one and the place refuses loudly if a pinned
+#    store somehow lacks one.
+#  - warehouse_id is a LOGICAL ref to the inventory module's warehouses
+#    (indexed uuid, no cross-schema FK). Its discipline is USE-TIME: the
+#    availability port answers per (company, item, warehouse) — a store
+#    whose warehouse holds no stock reads zero, never errors.
+#  - latitude/longitude are OFFICER-INPUT ONLY. No public route geocodes
+#    and no third-party outbound call exists anywhere in this module
+#    (the upstream public OpenStreetMap geocode + sudo'd partner writes
+#    are fenced with the outbound-bridge posture).
+#  - Deactivation is the lifecycle (is_active=false hides the store from
+#    every public read); the carts FK is ON DELETE RESTRICT so a pinned
+#    store can never vanish silently.
+# =============================================================================
+
+models:
+
+  - name: PickupLocation
+    collection: pickup_locations
+    read_only: true
+    description: "PickupLocation — one merchant-declared pickup store: the fulfillment warehouse, the store's address (the pickup order's fiscal jurisdiction), officer-input coordinates, and the active flag. Read-only over HTTP on the public tree (a pure lookup read); written only by the officer registry verbs."
+    fields:
+      id:
+        type: uuid
+        attributes: ["@id", "@default(uuid)"]
+        description: "Unique record id"
+      website_id:
+        type: uuid
+        attributes: ["@required", "@indexed", "@exclude_from_foreign_key_check"]
+        description: "LOGICAL ref website.websites(id) — the website this store serves. Public reads fence on (website_id, is_active); a foreign website's store is indistinguishable from a missing one."
+      warehouse_id:
+        type: uuid?
+        attributes: ["@indexed", "@exclude_from_foreign_key_check"]
+        description: "LOGICAL ref the inventory module's warehouses — the fulfillment origin this store picks from. NULL = the store fulfills from the company's aggregate stock (the availability port's None scope)."
+      name:
+        type: string
+        attributes: ["@required", "@max(120)"]
+        description: "The store's display name (unique per website among live rows)."
+      address_line1:
+        type: string?
+        attributes: ["@max(200)"]
+        description: "Street address (the store's physical address — where pickup happens and where pickup fiscal jurisdiction derives from)."
+      city:
+        type: string?
+        attributes: ["@max(80)"]
+        description: "City"
+      postal_code:
+        type: string?
+        attributes: ["@max(20)"]
+        description: "Postal code"
+      country:
+        type: string
+        attributes: ["@required", "@max(2)"]
+        description: "ISO 3166-1 alpha-2 country code — REQUIRED merchant-declared input. The store's country is the fiscal jurisdiction every pickup order's tax resolves under (passed to the tax port server-side at place; never client input on the public tree). A store without a country cannot resolve pickup tax, so the officer upsert refuses to create one and the place refuses loudly if a pinned store somehow lacks it."
+      latitude:
+        type: decimal?
+        attributes: ["@precision(9,6)"]
+        description: "Officer-input coordinate. Never geocoded by this module; no public geocode surface exists."
+      longitude:
+        type: decimal?
+        attributes: ["@precision(9,6)"]
+        description: "Officer-input coordinate. Never geocoded by this module."
+      opening_hours:
+        type: json?
+        description: "Opening-hours document for display (free json shape, rendered by the webapp)."
+      is_active:
+        type: bool
+        attributes: ["@default(true)"]
+        description: "The lifecycle flag: inactive stores vanish from public reads; the officer registry deactivates instead of deleting (the carts FK RESTRICTs deletion)."
+      metadata:
+        type: Metadata
+        attributes: ["@audit_metadata"]
+        description: "Audit metadata"
+
+    indexes:
+      - type: unique
+        fields: [website_id, name]
+        where: "deleted_at IS NULL"
+        description: "One live store name per website"
+      - type: index
+        fields: [website_id, is_active]
+        description: "The public lookup read (active stores for the website)"

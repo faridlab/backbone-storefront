@@ -1,8 +1,8 @@
 [package]
 name = "backbone-storefront"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-description = "Server-authoritative eCommerce core — carts as identity-bound drafts (partial-unique open cart per visitor, explicit adoption through portal linkage, the sales order minted only at place under a cart row lock that also guards delivery and billing changes), publish-gated per-website product listings with per-website price rows, checkout that creates the pending gateway transaction inside the lock, settlement-to-confirm riding the gateway's existing seam, and abandoned carts as a derived read with an explicit recovery verb (Odoo website_sale port; rendering and the payment UX stay in the webapps)"
+description = "Server-authoritative eCommerce core — carts as identity-bound drafts (partial-unique open cart per visitor, explicit adoption through portal linkage, the sales order minted only at place under a cart row lock that also guards delivery and billing changes), publish-gated per-website product listings with per-website price rows, checkout that creates the pending gateway transaction inside the lock, settlement-to-confirm riding the gateway's existing seam, abandoned carts as a derived read with an explicit recovery verb, plus the shopper companions: host-composed availability reads with display-vs-checkout scopes and a place-time stock gate, Click & Collect with a server-validated pickup registry and a pay-on-site lane that never auto-confirms an unpaid order, a visitor-backed merge-safe wishlist, a server-capped comparison read, promo reward lines surfaced on every priced read, and back-in-stock demand as an officer-only explicit-send surface (Odoo website_sale + companion port; rendering and the payment UX stay in the webapps)"
 
 [lib]
 path = "src/lib.rs"

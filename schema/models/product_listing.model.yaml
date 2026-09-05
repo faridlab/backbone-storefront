@@ -56,6 +56,10 @@ models:
         type: json
         attributes: ["@required", "@default('[]')"]
         description: "Ordered array of {url, alt?} media references — webapp/object-storage URLs only; a `data:` URI is rejected at write validation (no data-URI smuggling)."
+      allow_backorder:
+        type: bool
+        attributes: ["@required", "@default(false)"]
+        description: "The per-listing sold-out policy: false (default) = the stock gate refuses line adds/sets and the place when free quantity runs out; true = the listing stays orderable past free quantity (made-to-order). Officer-set at the listing upsert; the CHECKOUT-scope gate skips backorder-allowed lines."
       metadata:
         type: Metadata
         attributes: ["@audit_metadata"]

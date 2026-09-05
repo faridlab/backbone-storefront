@@ -43,6 +43,8 @@ pub type CartService = GenericCrudService<
 >;
 
 use super::audit::{record_audit, ActorRef};
+use super::availability_port::AvailabilityReadPort;
+use super::availability_service;
 use super::catalog_read_port::{CatalogReadPort, ItemSnapshot};
 use super::party_write_port::PartyWritePort;
 use super::storefront_error::StorefrontError;
@@ -84,6 +86,8 @@ pub struct CartRow {
     pub state: String,
     pub coupon_code: Option<String>,
     pub delivery_carrier_id: Option<Uuid>,
+    pub fulfillment_mode: String,
+    pub pickup_location_id: Option<Uuid>,
     pub placed_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
@@ -130,7 +134,8 @@ pub async fn visitor_by_token(
 
 pub(crate) const CART_SELECT: &str = r#"
     SELECT id, website_id, visitor_id, portal_user_id, party_id,
-           state::text AS state, coupon_code, delivery_carrier_id, placed_at
+           state::text AS state, coupon_code, delivery_carrier_id,
+           fulfillment_mode, pickup_location_id, placed_at
     FROM storefront.carts
 "#;
 
@@ -358,11 +363,13 @@ pub async fn gated_listing(
 // ── line verbs ──────────────────────────────────────────────────────────────
 
 /// Add a line (same-item adds FOLD onto the existing line). The publish
-/// gate re-checks HERE, at mutation time; a closed door refuses the
-/// add, never silently drops it.
+/// gate AND the stock clamp re-check HERE, at mutation time; a closed
+/// door or a short warehouse refuses the add, never silently drops or
+/// clamps it.
 pub async fn add_line(
     pool: &sqlx::PgPool,
     catalog: &dyn CatalogReadPort,
+    availability: &dyn AvailabilityReadPort,
     company_id: Uuid,
     cart: &CartRow,
     item_id: Uuid,
@@ -380,11 +387,25 @@ pub async fn add_line(
     if let Some(line) = existing.iter().find(|l| l.item_id == item_id) {
         // Fold: a repeat item grows its existing line.
         let next = line.quantity + quantity;
-        return set_line_quantity(pool, catalog, company_id, cart, line.id, next).await;
+        return set_line_quantity(pool, catalog, availability, company_id, cart, line.id, next)
+            .await;
     }
     if (existing.len() as i64) >= max_cart_lines() {
         return Err(StorefrontError::LineLimitExceeded);
     }
+    // The stock clamp on the RESULTING quantity (checkout scope,
+    // computed fresh; a backorder-allowed listing skips it).
+    let mut clamp_conn = pool.acquire().await?;
+    availability_service::clamp_quantity(
+        &mut clamp_conn,
+        availability,
+        company_id,
+        cart,
+        item_id,
+        quantity,
+    )
+    .await?;
+    drop(clamp_conn);
     let row: (Uuid,) = sqlx::query_as(
         r#"
         INSERT INTO storefront.cart_lines (id, cart_id, item_id, quantity)
@@ -412,12 +433,14 @@ pub async fn add_line(
     Ok(CartLineRow { id: row.0, cart_id: cart.id, item_id, quantity })
 }
 
-/// Set a line's quantity (positive decimal only). The publish gate
-/// re-checks at mutation time — an item that left the gate since the
-/// add refuses the SET, never silently unlinks the line.
+/// Set a line's quantity (positive decimal only). The publish gate AND
+/// the stock clamp re-check at mutation time — an item that left the
+/// gate or ran past the warehouse's free quantity since the add refuses
+/// the SET, never silently unlinks the line.
 pub async fn set_line_quantity(
     pool: &sqlx::PgPool,
     catalog: &dyn CatalogReadPort,
+    availability: &dyn AvailabilityReadPort,
     company_id: Uuid,
     cart: &CartRow,
     line_id: Uuid,
@@ -436,6 +459,19 @@ pub async fn set_line_quantity(
         .ok_or(StorefrontError::LineNotFound)?;
     // Mutation-time gate re-check on this line's item.
     gated_listing(pool, catalog, company_id, cart.website_id, line.item_id).await?;
+    // The stock clamp on the requested quantity (checkout scope,
+    // computed fresh; a backorder-allowed listing skips it).
+    let mut clamp_conn = pool.acquire().await?;
+    availability_service::clamp_quantity(
+        &mut clamp_conn,
+        availability,
+        company_id,
+        cart,
+        line.item_id,
+        quantity,
+    )
+    .await?;
+    drop(clamp_conn);
     sqlx::query(
         r#"
         UPDATE storefront.cart_lines

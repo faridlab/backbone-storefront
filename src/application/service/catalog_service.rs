@@ -457,6 +457,50 @@ pub async fn upsert_listing(
     Ok(listing_id)
 }
 
+/// Set the listing's sold-out POLICY (§14.1): `false` (the default) —
+/// the stock gate refuses line adds and places once free quantity runs
+/// out; `true` — made-to-order, the listing stays orderable past free
+/// quantity and the stock gate skips it. The policy is officer-owned
+/// per listing; no client surface writes it.
+pub async fn set_listing_backorder(
+    pool: &sqlx::PgPool,
+    website_id: Uuid,
+    item_id: Uuid,
+    allow_backorder: bool,
+    actor: ActorRef,
+) -> Result<Uuid, StorefrontError> {
+    let (listing_id,): (Uuid,) = sqlx::query_as(
+        r#"
+        UPDATE storefront.product_listings
+        SET allow_backorder = $3,
+            metadata = jsonb_set(metadata, '{updated_at}', to_jsonb(now()))
+        WHERE website_id = $1 AND item_id = $2
+          AND (metadata->>'deleted_at') IS NULL
+        RETURNING id
+        "#,
+    )
+    .bind(website_id)
+    .bind(item_id)
+    .bind(allow_backorder)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| match e {
+        sqlx::Error::RowNotFound => StorefrontError::NotFound("listing for item".into()),
+        other => StorefrontError::Db(other),
+    })?;
+    record_audit(
+        pool,
+        Some(website_id),
+        "listing_backorder_set",
+        actor,
+        Some("product_listing"),
+        Some(listing_id),
+        Some(serde_json::json!({ "item_id": item_id, "allow_backorder": allow_backorder })),
+    )
+    .await?;
+    Ok(listing_id)
+}
+
 /// THE publish verb — one of the only two writers of `is_published`.
 /// Publishing without a live price row succeeds (the row is writable
 /// ahead of merchandising); the READ gate still withholds visibility
@@ -622,6 +666,10 @@ pub struct SettingsPatch {
     pub access_gate: String,
     pub default_customer_group_id: Option<Uuid>,
     pub recovery_template_ref: Option<String>,
+    /// The DISPLAY-scope warehouse for availability reads. None = the
+    /// company aggregate (a documented, officer-visible semantic —
+    /// always written, like the other fields: the verb is a full-set).
+    pub display_warehouse_id: Option<Uuid>,
 }
 
 /// Set the website's sale settings (one row per website — the grain IS
@@ -666,6 +714,7 @@ pub async fn set_settings(
                 SET access_gate = $2::storefront_access_gate,
                     default_customer_group_id = $3,
                     recovery_template_ref = $4,
+                    display_warehouse_id = $5,
                     metadata = jsonb_set(metadata, '{updated_at}', to_jsonb(now()))
                 WHERE id = $1 AND (metadata->>'deleted_at') IS NULL
                 "#,
@@ -674,6 +723,7 @@ pub async fn set_settings(
             .bind(&patch.access_gate)
             .bind(patch.default_customer_group_id)
             .bind(&patch.recovery_template_ref)
+            .bind(patch.display_warehouse_id)
             .execute(pool)
             .await?;
             row.id
@@ -687,8 +737,8 @@ pub async fn set_settings(
                 r#"
                 INSERT INTO storefront.website_sale_settings
                     (id, website_id, access_gate, default_customer_group_id,
-                     guest_party_id, recovery_template_ref)
-                VALUES (gen_random_uuid(), $1, $2::storefront_access_gate, $3, $4, $5)
+                     guest_party_id, recovery_template_ref, display_warehouse_id)
+                VALUES (gen_random_uuid(), $1, $2::storefront_access_gate, $3, $4, $5, $6)
                 RETURNING id
                 "#,
             )
@@ -697,6 +747,7 @@ pub async fn set_settings(
             .bind(patch.default_customer_group_id)
             .bind(guest_party_id)
             .bind(&patch.recovery_template_ref)
+            .bind(patch.display_warehouse_id)
             .fetch_one(pool)
             .await?;
             row.0
@@ -709,7 +760,10 @@ pub async fn set_settings(
         actor,
         Some("website_sale_settings"),
         Some(settings_id),
-        Some(serde_json::json!({ "access_gate": patch.access_gate })),
+        Some(serde_json::json!({
+            "access_gate": patch.access_gate,
+            "display_warehouse_id": patch.display_warehouse_id,
+        })),
     )
     .await?;
     Ok(settings_id)

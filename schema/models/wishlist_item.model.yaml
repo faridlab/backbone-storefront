@@ -1,0 +1,87 @@
+# =============================================================================
+# storefront — the visitor-backed wishlist: WishlistItem.
+#
+# PORT DECISIONS (source: docs/odoo/website/ecommerce/companions — the
+# wishlist cohort + the WT-1 visitor-backed design; docs/spec.md §14):
+#  - OWNERSHIP IS THE VISITOR IDENTITY, NOT A SESSION KEY. visitor_id is
+#    NOT NULL and keys the unique: every wish is born from a real
+#    website visitor row (minted once by the website module, read here
+#    by token — never minted by this module). There is no NULL-blind
+#    partner unique anywhere (the upstream UNIQUE(product, partner)
+#    with its NULL-partner duplicates defect is dead).
+#  - THE PRINCIPAL IS A RECONCILED STAMP. portal_user_id is set by the
+#    explicit reconcile verb at login: the CURRENT visitor's rows for
+#    THIS website get stamped. Reads are the UNION of (visitor's own
+#    rows) and (rows stamped with the principal) — rows never move, so
+#    the merge cannot lose or hide wishes (merge-safe). A second
+#    visitor session under the same principal sees the earlier
+#    visitor's stamped rows through the union.
+#  - WEBSITE-SCOPED FOREVER. website_id is in the unique and in both
+#    read arms: a wish made on one website never appears on another,
+#    before or after reconciliation (the upstream website-blind
+#    re-ownership that hid rows site-by-site is dead).
+#  - NO PRICE SNAPSHOT. Prices live in the per-website price rows and
+#    are read fresh; a stored per-wish price would be write-only data
+#    from the moment it landed (the upstream write-only price column is
+#    not ported).
+#  - notify_on_stock + contact_email are the back-in-stock arm. The
+#    flag is durable identity-keyed demand. contact_email is stamped
+#    ONLY from a VERIFIED portal principal at arm time — never from
+#    client-supplied text (no partner is ever minted from a bare
+#    email). Visitors without a principal arm the flag with a NULL
+#    address and surface to the officer read as unidentified demand.
+# =============================================================================
+
+models:
+
+  - name: WishlistItem
+    collection: wishlist_items
+    read_only: true
+    description: "WishlistItem — one (website, visitor, item) wish: durable, merge-safe, website-scoped. Written by the public add/remove/notify verbs behind the publish gate; the principal stamp is written only by the reconcile verb."
+    fields:
+      id:
+        type: uuid
+        attributes: ["@id", "@default(uuid)"]
+        description: "Unique record id"
+      website_id:
+        type: uuid
+        attributes: ["@required", "@indexed", "@exclude_from_foreign_key_check"]
+        description: "LOGICAL ref website.websites(id) — the website the wish was made on; part of the unique, never rewritten."
+      visitor_id:
+        type: uuid
+        attributes: ["@required", "@indexed", "@exclude_from_foreign_key_check"]
+        description: "LOGICAL ref website.visitors(id) — the owning visitor identity (NOT NULL: every wish is born from a real visitor row)."
+      portal_user_id:
+        type: uuid?
+        attributes: ["@indexed", "@exclude_from_foreign_key_check"]
+        description: "LOGICAL ref portal.portal_users(id) — the reconciled principal stamp (the union read's second arm). Never the ownership key; never moved between rows."
+      item_id:
+        type: uuid
+        attributes: ["@required", "@indexed", "@exclude_from_foreign_key_check"]
+        description: "LOGICAL ref the catalog item — gated at add time (sale_ok + published + live listing); a wish for a closed-door item refuses with the typed 404."
+      notify_on_stock:
+        type: bool
+        attributes: ["@default(false)"]
+        description: "The back-in-stock demand flag — durable, identity-keyed. Cleared only per-subscriber by an ACCEPTED officer send (a failed/unwired send keeps it — the subscription never burns on a delivery failure)."
+      contact_email:
+        type: string?
+        attributes: ["@max(200)"]
+        description: "The contact address for the stock alert, stamped ONLY from the verified principal at arm time. NULL = anonymous demand (visible to officers as non-contactable; never filled from client text)."
+      metadata:
+        type: Metadata
+        attributes: ["@audit_metadata"]
+        description: "Audit metadata"
+
+    indexes:
+      - type: unique
+        fields: [website_id, visitor_id, item_id]
+        where: "deleted_at IS NULL"
+        description: "The idempotent-add arbiter — ON CONFLICT DO NOTHING lands here"
+      - type: index
+        fields: [website_id, portal_user_id, item_id]
+        where: "deleted_at IS NULL"
+        description: "The principal-stamped read arm (the union read's second half)"
+      - type: index
+        fields: [website_id, item_id]
+        where: "notify_on_stock = TRUE AND deleted_at IS NULL"
+        description: "The back-in-stock demand read (armed wishes per item)"

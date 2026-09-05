@@ -54,6 +54,8 @@ use backbone_selling::application::service::{
 };
 
 use super::audit::{record_audit, ActorRef};
+use super::availability_port::AvailabilityReadPort;
+use super::availability_service;
 use super::cart_service::{self, CartRow};
 use super::catalog_read_port::CatalogReadPort;
 use super::party_write_port::PartyWritePort;
@@ -73,6 +75,7 @@ pub struct CheckoutRow {
     pub provider_reference: Option<String>,
     pub amount_total: Decimal,
     pub state: String,
+    pub pickup_location_id: Option<Uuid>,
     pub placed_at: Option<chrono::DateTime<chrono::Utc>>,
     pub settled_at: Option<chrono::DateTime<chrono::Utc>>,
 }
@@ -86,8 +89,8 @@ const CHECKOUT_SELECT: &str = r#"
            checkout_sessions.sales_order_id, checkout_sessions.gateway_transaction_id,
            checkout_sessions.provider_code, checkout_sessions.provider_reference,
            checkout_sessions.amount_total,
-           checkout_sessions.state::text AS state, checkout_sessions.placed_at,
-           checkout_sessions.settled_at
+           checkout_sessions.state::text AS state, checkout_sessions.pickup_location_id,
+           checkout_sessions.placed_at, checkout_sessions.settled_at
     FROM storefront.checkout_sessions
 "#;
 
@@ -214,15 +217,19 @@ async fn lock_cart(
     })
 }
 
-/// The deps every checkout critical section holds. The pricing port is
-/// the HOST-composed adapter (the same instance selling-side tests
-/// use); the gateway service stays the plain CRUD service.
+/// The deps every checkout critical section holds. The pricing and
+/// availability ports are HOST-composed adapters; the gateway service
+/// stays the plain CRUD service. The availability port is REQUIRED for
+/// a functional checkout: the place-time stock gate fails closed
+/// without it (the typed 503 — a place never promises stock nobody
+/// read).
 pub struct CheckoutDeps {
     pub pool: sqlx::PgPool,
     pub catalog: std::sync::Arc<dyn CatalogReadPort>,
     pub party: std::sync::Arc<dyn PartyWritePort>,
     pub tax: std::sync::Arc<dyn TaxResolvePort>,
     pub pricing: std::sync::Arc<dyn CartPricingPort>,
+    pub availability: std::sync::Arc<dyn AvailabilityReadPort>,
     pub selling: std::sync::Arc<SellingWriteService>,
     pub gateway: GatewayTransactionService,
 }
@@ -237,6 +244,7 @@ impl CheckoutDeps {
         party: std::sync::Arc<dyn PartyWritePort>,
         tax: std::sync::Arc<dyn TaxResolvePort>,
         pricing: std::sync::Arc<dyn CartPricingPort>,
+        availability: std::sync::Arc<dyn AvailabilityReadPort>,
     ) -> Self {
         Self {
             selling: std::sync::Arc::new(SellingWriteService::new(pool.clone())),
@@ -246,6 +254,7 @@ impl CheckoutDeps {
             party,
             tax,
             pricing,
+            availability,
         }
     }
 }
@@ -309,6 +318,100 @@ pub async fn set_delivery(
         .ok_or_else(|| StorefrontError::Internal("cart vanished after delivery set".into()))
 }
 
+/// The locked CLICK & COLLECT PIN (§14.2): the client presents ONLY the
+/// opaque location id — the store row (its warehouse, its address, its
+/// fiscal country) resolves SERVER-SIDE here, validated against the
+/// cart's own website (a foreign or inactive store is the closed-door
+/// 404). The pin does NOT touch `delivery_carrier_id` (the carrier
+/// stays the delivery verb's lane; a lookup switches no carrier and
+/// this verb mints nothing).
+pub async fn set_pickup(
+    deps: &CheckoutDeps,
+    company_id: Uuid,
+    cart_id: Uuid,
+    location_id: Uuid,
+) -> Result<(CartRow, super::collect_service::PickupLocationRow), StorefrontError> {
+    let mut tx = deps.pool.begin().await?;
+    let cart = lock_cart(&mut tx, cart_id).await?;
+    if cart.state != "open" {
+        return Err(StorefrontError::CartNotOpen { state: cart.state.clone() });
+    }
+    company_scope::bind_company_on(&mut tx, company_id).await?;
+    let location = super::collect_service::active_location_on_website(
+        &mut *tx,
+        cart.website_id,
+        location_id,
+    )
+    .await?
+    .ok_or(StorefrontError::PickupLocationNotFound)?;
+    sqlx::query(
+        r#"
+        UPDATE storefront.carts
+        SET fulfillment_mode = 'pickup', pickup_location_id = $2,
+            metadata = jsonb_set(metadata, '{updated_at}', to_jsonb(now()))
+        WHERE id = $1
+        "#,
+    )
+    .bind(cart_id)
+    .bind(location_id)
+    .execute(&mut *tx)
+    .await?;
+    record_audit(
+        &mut *tx,
+        Some(cart.website_id),
+        "pickup_set",
+        ActorRef::visitor(cart.visitor_id),
+        Some("cart"),
+        Some(cart_id),
+        Some(serde_json::json!({ "pickup_location_id": location_id })),
+    )
+    .await?;
+    tx.commit().await?;
+    let stamped = cart_service::cart_by_id(&deps.pool, cart_id)
+        .await?
+        .ok_or_else(|| StorefrontError::Internal("cart vanished after pickup set".into()))?;
+    Ok((stamped, location))
+}
+
+/// The locked lane RESET (§14.2): back to delivery — the pickup pin
+/// clears (the store linkage on the cart goes away; nothing else
+/// moves, and the carrier stays whatever the delivery verb set).
+pub async fn reset_fulfillment(
+    deps: &CheckoutDeps,
+    cart_id: Uuid,
+) -> Result<CartRow, StorefrontError> {
+    let mut tx = deps.pool.begin().await?;
+    let cart = lock_cart(&mut tx, cart_id).await?;
+    if cart.state != "open" {
+        return Err(StorefrontError::CartNotOpen { state: cart.state.clone() });
+    }
+    sqlx::query(
+        r#"
+        UPDATE storefront.carts
+        SET fulfillment_mode = 'delivery', pickup_location_id = NULL,
+            metadata = jsonb_set(metadata, '{updated_at}', to_jsonb(now()))
+        WHERE id = $1
+        "#,
+    )
+    .bind(cart_id)
+    .execute(&mut *tx)
+    .await?;
+    record_audit(
+        &mut *tx,
+        Some(cart.website_id),
+        "fulfillment_mode_reset",
+        ActorRef::visitor(cart.visitor_id),
+        Some("cart"),
+        Some(cart_id),
+        None,
+    )
+    .await?;
+    tx.commit().await?;
+    cart_service::cart_by_id(&deps.pool, cart_id)
+        .await?
+        .ok_or_else(|| StorefrontError::Internal("cart vanished after lane reset".into()))
+}
+
 /// The locked billing capture (§7.1): fiscal re-resolution can move the
 /// tax arm, so capture runs inside the lock. The re-price the response
 /// carries happens EXPLICITLY in the same verb (the caller re-derives
@@ -351,25 +454,72 @@ pub async fn capture_billing(
         .ok_or_else(|| StorefrontError::Internal("cart vanished after billing capture".into()))
 }
 
-/// PLACE — the row-locked critical section (§7.2/§7.3/§7.5). With
-/// `billing`, this is the EXPRESS verb (deterministic capture + place,
-/// one lock scope); without, plain checkout (billing must already be
-/// captured — the typed 409 otherwise).
-///
-/// Order of work inside the lock: price → fiscal rate → mint the
-/// priced order → locked total → session row → paid arm (pending
-/// gateway transaction, created inside the lock scope) or free arm
-/// (direct confirm). The mint and the gateway create run on their own
-/// pool transactions INSIDE the lock scope (they are single-verb
-/// substrate calls); the cart's `state='placed'` flip and the session
-/// row commit in the OUTER locked transaction, so a failed mint leaves
-/// the cart open and NO session row exists.
+/// The payment lane a place runs under (§14.2). `Online` is the P1
+/// pair (free arm / paid arm). `OnSite` is the Click & Collect
+/// pay-at-store lane: the order mints DRAFT, NO gateway row is
+/// created, and NOTHING auto-confirms — the officer confirm-pickup
+/// verb (after the store physically took payment) is the only
+/// confirmer. A zero-total on-site place takes the SAME lane (one
+/// uniform lane beats mixed arms inside a lane).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PaymentLane {
+    Online,
+    OnSite,
+}
+
+/// PLACE — the ONLINE lane (the §7.2/§7.3/§7.5 critical section): free
+/// arm on a zero locked total, paid arm otherwise. See
+/// [`place_with_lane`] for the ordered work inside the lock.
 pub async fn place(
     deps: &CheckoutDeps,
     company_id: Uuid,
     cart_id: Uuid,
     billing: Option<(String, Option<String>)>,
     notes: Option<String>,
+) -> Result<CheckoutRow, StorefrontError> {
+    place_with_lane(deps, company_id, cart_id, billing, notes, PaymentLane::Online).await
+}
+
+/// PLACE, PAY ON SITE (§14.2) — the third checkout lane. Requires a
+/// pickup cart (the typed 422 on a delivery cart — a shipping order
+/// cannot promise payment at a store); the order mints DRAFT, the
+/// session records `pending_pickup` with NO gateway row, and NOTHING
+/// auto-confirms. An unpaid on-site order stays draft until the store
+/// takes payment and the officer confirm-pickup verb runs (or the
+/// cancel mirror retires it).
+pub async fn place_on_site(
+    deps: &CheckoutDeps,
+    company_id: Uuid,
+    cart_id: Uuid,
+    billing: Option<(String, Option<String>)>,
+    notes: Option<String>,
+) -> Result<CheckoutRow, StorefrontError> {
+    place_with_lane(deps, company_id, cart_id, billing, notes, PaymentLane::OnSite).await
+}
+
+/// PLACE — the row-locked critical section shared by both lanes. With
+/// `billing`, this is the EXPRESS verb (deterministic capture + place,
+/// one lock scope); without, plain checkout (billing must already be
+/// captured — the typed 409 otherwise).
+///
+/// Order of work inside the lock: price → stock gate (checkout scope,
+/// computed fresh) → fiscal rate (the pickup store's country when the
+/// cart is pinned — server-derived, never client JSON) → mint the
+/// priced order → locked total → session row → the lane's arm (online:
+/// pending gateway transaction inside the lock scope, or the free
+/// arm's direct confirm; on-site: `pending_pickup`, no gateway row,
+/// no confirm). The mint and the gateway create run on their own
+/// pool transactions INSIDE the lock scope (they are single-verb
+/// substrate calls); the cart's `state='placed'` flip and the session
+/// row commit in the OUTER locked transaction, so a failed mint leaves
+/// the cart open and NO session row exists.
+async fn place_with_lane(
+    deps: &CheckoutDeps,
+    company_id: Uuid,
+    cart_id: Uuid,
+    billing: Option<(String, Option<String>)>,
+    notes: Option<String>,
+    lane: PaymentLane,
 ) -> Result<CheckoutRow, StorefrontError> {
     let mut tx = deps.pool.begin().await?;
     let cart = lock_cart(&mut tx, cart_id).await?;
@@ -381,6 +531,49 @@ pub async fn place(
         // window (delivery's §7.1(b) refusal).
         return Err(StorefrontError::CartNotFound);
     }
+    // The Click & Collect invariants, under the lock (§14.2): the
+    // on-site lane exists ONLY for pickup carts; a pickup cart's pinned
+    // store must still be live here (the store row is BOTH the
+    // fulfillment origin's resolver and the fiscal source — its country
+    // is the jurisdiction the tax port resolves under, server-derived;
+    // the client never sends a warehouse or a jurisdiction). A live
+    // store with NO country is a typed refusal, never a fallback: the
+    // only arm a countryless store could reach is the delivery/home
+    // jurisdiction, which would mint pickup tax under the wrong country
+    // silently. The column is NOT NULL and the upsert requires the
+    // country, so this guard is the code-level defense behind those
+    // fences (a legacy or bypass-written row still refuses here).
+    if lane == PaymentLane::OnSite && cart.fulfillment_mode != "pickup" {
+        return Err(StorefrontError::PickupModeRequired);
+    }
+    let (pickup_country, pickup_pin) = if cart.fulfillment_mode == "pickup" {
+        let Some(location_id) = cart.pickup_location_id else {
+            return Err(StorefrontError::PickupLocationNotFound);
+        };
+        let row: Option<(Option<String>,)> = sqlx::query_as(
+            r#"
+            SELECT country
+            FROM storefront.pickup_locations
+            WHERE id = $1 AND is_active = true
+              AND (metadata->>'deleted_at') IS NULL
+            LIMIT 1
+            "#,
+        )
+        .bind(location_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+        match row {
+            Some((Some(country),)) => (Some(country), Some(location_id)),
+            // Unreachable by construction (NOT NULL column + required
+            // upsert) — and refused loudly regardless, so
+            // resolve_rate(company_id, None) — the home arm — can never
+            // carry a pickup order.
+            Some((None,)) => return Err(StorefrontError::PickupCountryMissing),
+            None => return Err(StorefrontError::PickupLocationNotFound),
+        }
+    } else {
+        (None, None)
+    };
     // RLS scope (ADR-0008): bind the cart's company onto the locked
     // transaction, so every cross-schema read executed ON this
     // transaction (the carrier-registry check in the delivery verbs,
@@ -440,10 +633,28 @@ pub async fn place(
         return Err(StorefrontError::PublishGateRefused);
     }
 
-    // (2) Order-level fiscal rate (§5.3).
+    // (1b) The place-time stock gate (§14.1): EVERY line re-checked in
+    // the cart's checkout scope (the pinned store's warehouse for a
+    // pickup cart, the company aggregate otherwise), computed fresh
+    // through the port. Backorder-allowed listings skip their check;
+    // an unwired port fails the whole place closed (the typed 503).
+    let line_pairs: Vec<(Uuid, Decimal)> =
+        lines.iter().map(|l| (l.item_id, l.quantity)).collect();
+    availability_service::gate_place_quantities(
+        &mut *tx,
+        deps.availability.as_ref(),
+        company_id,
+        &cart,
+        &line_pairs,
+    )
+    .await?;
+
+    // (2) Order-level fiscal rate (§5.3). A pickup cart resolves under
+    // the STORE's country (the server-side fiscal pin); a delivery
+    // cart passes no jurisdiction (the adapter's home-rate arm).
     let tax_rate = deps
         .tax
-        .resolve_rate(company_id, None)
+        .resolve_rate(company_id, pickup_country.as_deref())
         .await
         .map_err(|e| StorefrontError::TaxPortRefused { code: e.code })?;
 
@@ -517,8 +728,25 @@ pub async fn place(
             .map_err(map_selling_error)?;
         let amount_total = order_ref.grand_total;
 
-        // (4)/(5) The arms, decided by the locked total.
-        let arms = if amount_total == Decimal::ZERO {
+        // (4)/(5) The arms, decided by the lane first, then the locked
+        // total.
+        let arms = if lane == PaymentLane::OnSite {
+            // PAY-ON-SITE LANE (§14.2): the order stays DRAFT — no
+            // gateway row, no confirm, no exception for a zero total.
+            // The store takes payment physically; the officer
+            // confirm-pickup verb (the only confirmer) runs after.
+            record_audit(
+                &mut *tx,
+                Some(cart.website_id),
+                "checkout_pending_pickup",
+                ActorRef::visitor(cart.visitor_id),
+                Some("checkout"),
+                Some(checkout_id),
+                Some(serde_json::json!({ "amount_total": amount_total })),
+            )
+            .await?;
+            ("pending_pickup", None, None, None)
+        } else if amount_total == Decimal::ZERO {
             // FREE ARM (§7.5): no gateway row; the order confirms at place.
             deps.selling
                 .confirm_sales_order(
@@ -594,12 +822,15 @@ pub async fn place(
 
     // The session row + the cart's placement flip, in the OUTER locked
     // transaction (a failure above leaves the cart open and no session).
+    // The pickup pin rides the session (the fulfillment chain's record
+    // of WHICH store this order collects from).
     sqlx::query(
         r#"
         INSERT INTO storefront.checkout_sessions
             (id, cart_id, website_id, sales_order_id, gateway_transaction_id,
-             provider_code, provider_reference, amount_total, state, placed_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::storefront_checkout_state, now())
+             provider_code, provider_reference, amount_total, state,
+             pickup_location_id, placed_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::storefront_checkout_state, $10, now())
         "#,
     )
     .bind(checkout_id)
@@ -611,6 +842,7 @@ pub async fn place(
     .bind(provider_reference)
     .bind(amount_total)
     .bind(state)
+    .bind(pickup_pin)
     .execute(&mut *tx)
     .await?;
     sqlx::query(
@@ -827,6 +1059,97 @@ pub async fn cancel_checkout(
     checkout_by_id(&deps.pool, checkout_id)
         .await?
         .ok_or_else(|| StorefrontError::Internal("checkout vanished after cancel".into()))
+}
+
+/// The OFFICER CONFIRM for pay-on-site (§14.2): the store collected the
+/// physical payment, so the officer — and ONLY the officer — flips a
+/// `pending_pickup` checkout to settled and confirms its order. This is
+/// the sole confirmer of the on-site lane: the lane itself NEVER
+/// auto-confirms (an unpaid order can only become an order someone
+/// physically paid for at the counter, recorded here after the fact).
+/// `payment_reference` is the officer's free-text receipt note (a
+/// hand-written receipt number, a cash-drawer id) — optional, stamped
+/// into the session's metadata for the audit trail.
+pub async fn confirm_pickup(
+    deps: &CheckoutDeps,
+    checkout_id: Uuid,
+    payment_reference: Option<&str>,
+    actor: ActorRef,
+) -> Result<CheckoutRow, StorefrontError> {
+    let checkout = checkout_by_id(&deps.pool, checkout_id)
+        .await?
+        .ok_or(StorefrontError::CheckoutNotFound)?;
+    if checkout.state != "pending_pickup" {
+        return Err(StorefrontError::CheckoutStateRefused { state: checkout.state.clone() });
+    }
+    let Some(order_id) = checkout.sales_order_id else {
+        return Err(StorefrontError::Internal("checkout carries no order id".into()));
+    };
+    let (company_id,): (Uuid,) = sqlx::query_as(
+        r#"
+        SELECT w.company_id
+        FROM website.websites w
+        WHERE w.id = $1 AND (w.metadata->>'deleted_at') IS NULL
+        "#,
+    )
+    .bind(checkout.website_id)
+    .fetch_one(&deps.pool)
+    .await?;
+    // RLS scope (ADR-0008): the confirm's pre-reads touch FORCE-RLS
+    // selling tables — same scoped wrap as the settlement confirm.
+    let confirmed = company_scope::with_request_scope(&deps.pool, company_id, async {
+        deps.selling
+            .confirm_sales_order(
+                order_id,
+                company_id,
+                &NoUnitCostPort,
+                &NoStockFulfillmentPort,
+                &NoServiceCatalog,
+                &NoServiceDelivery,
+            )
+            .await
+    })
+    .await
+    .map_err(StorefrontError::from)?;
+    match confirmed {
+        Ok(()) => {}
+        // Double guard: already confirmed by a crash-window retry —
+        // proceed to stamp.
+        Err(SellingError::NotDraft(_)) => {}
+        Err(e) => return Err(map_selling_error(e)),
+    }
+    let stamped = sqlx::query(
+        r#"
+        UPDATE storefront.checkout_sessions
+        SET state = 'settled', settled_at = now(),
+            metadata = jsonb_set(
+                jsonb_set(metadata, '{paid_on_site}', 'true'::jsonb),
+                '{updated_at}', to_jsonb(now()))
+        WHERE id = $1 AND state = 'pending_pickup'
+          AND (metadata->>'deleted_at') IS NULL
+        "#,
+    )
+    .bind(checkout.id)
+    .execute(&deps.pool)
+    .await?;
+    if stamped.rows_affected() > 0 {
+        record_audit(
+            &deps.pool,
+            Some(checkout.website_id),
+            "pickup_confirmed",
+            actor,
+            Some("checkout"),
+            Some(checkout.id),
+            Some(serde_json::json!({
+                "payment_reference": payment_reference,
+                "paid_on_site": true,
+            })),
+        )
+        .await?;
+    }
+    checkout_by_id(&deps.pool, checkout_id)
+        .await?
+        .ok_or_else(|| StorefrontError::Internal("checkout vanished after pickup confirm".into()))
 }
 
 /// The checkout view's order-state read (read-only on the selling

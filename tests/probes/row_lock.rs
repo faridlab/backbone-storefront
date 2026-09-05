@@ -13,7 +13,7 @@ use backbone_storefront::application::service::cart_service;
 use backbone_storefront::application::service::checkout_service::{self, CheckoutDeps};
 
 use super::common::{
-    seed_carrier, seed_listing, seed_provider, seed_visitor, StubCatalog, StubParty, StubPricing,
+    seed_carrier, seed_listing, seed_provider, seed_visitor, StubAvailability, StubCatalog, StubParty, StubPricing,
     StubTax, TestDb,
 };
 
@@ -38,12 +38,15 @@ async fn concurrent_delivery_and_place_never_tear_and_totals_conserve() {
     let pricing = std::sync::Arc::new(StubPricing::new(Decimal::ONE, Vec::new()));
     let item = seed_listing(&pool, &catalog, view.id, "Widget", dec(150, 0), true).await;
 
+    let availability = std::sync::Arc::new(StubAvailability::new());
+    availability.stock(item, Decimal::new(10000, 0));
     let deps = std::sync::Arc::new(CheckoutDeps::new(
         pool.clone(),
         catalog.clone(),
         party.clone(),
         tax.clone(),
         pricing.clone(),
+        availability.clone(),
     ));
 
     // One cart, two lines of qty 1 each: the conserved total is 300.
@@ -52,12 +55,12 @@ async fn concurrent_delivery_and_place_never_tear_and_totals_conserve() {
         .unwrap()
         .cart;
     with_company_scope(Some(company), cart_service::add_line(
-        &pool, catalog.as_ref(), company, &cart, item, Decimal::ONE,
+        &pool, catalog.as_ref(), availability.as_ref(), company, &cart, item, Decimal::ONE,
     ))
     .await
     .unwrap();
     with_company_scope(Some(company), cart_service::add_line(
-        &pool, catalog.as_ref(), company, &cart, item, Decimal::ONE,
+        &pool, catalog.as_ref(), availability.as_ref(), company, &cart, item, Decimal::ONE,
     ))
     .await
     .unwrap();
@@ -189,19 +192,22 @@ async fn place_refuses_a_closed_cart_under_the_lock() {
     let tax = std::sync::Arc::new(StubTax(Decimal::ZERO));
     let pricing = std::sync::Arc::new(StubPricing::new(Decimal::ONE, Vec::new()));
     let item = seed_listing(&pool, &catalog, view.id, "Gadget", dec(90, 0), true).await;
+    let availability = std::sync::Arc::new(StubAvailability::new());
+    availability.stock(item, Decimal::new(10000, 0));
     let deps = CheckoutDeps::new(
         pool.clone(),
         catalog.clone(),
         party.clone(),
         tax.clone(),
         pricing.clone(),
+        availability.clone(),
     );
 
     let cart = cart_service::create_cart(&pool, view.id, visitor)
         .await
         .unwrap()
         .cart;
-    cart_service::add_line(&pool, catalog.as_ref(), company, &cart, item, Decimal::ONE)
+    cart_service::add_line(&pool, catalog.as_ref(), availability.as_ref(), company, &cart, item, Decimal::ONE)
         .await
         .unwrap();
     checkout_service::capture_billing(&deps, company, cart.id, "x@y.test", None)

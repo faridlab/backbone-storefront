@@ -50,6 +50,10 @@ models:
         type: string?
         attributes: ["@max(200)"]
         description: "The per-website recovery message template reference honored by the explicit officer recovery verb; NULL = the verb answers the typed unwired-template refusal (no hardcoded fallback exists)."
+      display_warehouse_id:
+        type: uuid?
+        attributes: ["@exclude_from_foreign_key_check"]
+        description: "The availability DISPLAY pivot — LOGICAL ref the inventory module's warehouses. NULL (the default) = display reads aggregate free quantity across the company's warehouses; a value scopes them to that warehouse. A first-class, officer-visible column of the SAME settings row (the value is read fresh on every availability read — no persisted stock snapshot exists anywhere)."
       metadata:
         type: Metadata
         attributes: ["@audit_metadata"]

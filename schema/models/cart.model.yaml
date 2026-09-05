@@ -68,6 +68,14 @@ models:
         type: uuid?
         attributes: ["@exclude_from_foreign_key_check"]
         description: "LOGICAL ref selling's delivery carriers — set only under the cart row lock, validated against the company's carriers (a clean typed 404, never an FK 500)."
+      fulfillment_mode:
+        type: string
+        attributes: ["@required", "@default(delivery)", "@max(20)"]
+        description: "The fulfillment lane: 'delivery' (default) or 'pickup' (Click & Collect). Moved ONLY by the pickup/reset verbs under the cart row lock — a pickup pin changes what the order's fulfillment rides."
+      pickup_location_id:
+        type: uuid?
+        attributes: ["@foreign_key(PickupLocation.pickup_locations)", "@indexed"]
+        description: "REAL intra-schema FK storefront.pickup_locations(id) ON DELETE RESTRICT — the pinned pickup store. The client presents only the opaque id; the verb resolves warehouse + fiscal jurisdiction server-side from the location row (client JSON pins nothing)."
       placed_at:
         type: datetime?
         description: "Stamped by the place verb inside the row lock, together with the state flip to 'placed'."

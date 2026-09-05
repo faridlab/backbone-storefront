@@ -8,7 +8,10 @@
 use rust_decimal::Decimal;
 use uuid::Uuid;
 
-use super::common::{get, seed_listing, seed_visitor, table_checksum, Probe, CHECKSUMMED_TABLES};
+use super::common::{
+    get, seed_listing, seed_pickup_location, seed_visitor, table_checksum, Probe,
+    CHECKSUMMED_TABLES,
+};
 
 async fn checksums(pool: &sqlx::PgPool) -> Vec<(i64, String)> {
     let mut out = Vec::new();
@@ -27,6 +30,8 @@ async fn every_get_route_leaves_every_table_untouched() {
     // Live state for the GETs to read: a published item, a visitor
     // session, an open cart with one line.
     let item = seed_listing(&pool, &probe.catalog, site, "Widget", Decimal::new(10000, 2), true).await;
+    probe.availability.stock(item, Decimal::new(10000, 0));
+    seed_pickup_location(&pool, site, "Probe Store Flagship", None, "ID", true).await;
     let (_visitor, token) = seed_visitor(&pool, site).await;
     let (status, _) = super::common::post(&probe.public, "/public/cart", Some(&token), "{}").await;
     assert_eq!(status, axum::http::StatusCode::OK);
@@ -54,6 +59,15 @@ async fn every_get_route_leaves_every_table_untouched() {
         ("/public/cart".into(), true),
         (format!("/public/checkout/{stranger}"), true),
         ("/public/abandoned".into(), true),
+        // The companions' GET family (stateless reads, the same
+        // no-write proof): availability, comparison, the pickup store
+        // lookup, and the wishlist read.
+        (format!("/public/availability/{item}"), true),
+        (format!("/public/availability/{stranger}"), true),
+        (format!("/public/compare?item_id={item}&item_id={stranger}"), true),
+        ("/public/compare".into(), true),
+        ("/public/collect/locations".into(), true),
+        ("/public/wishlist".into(), true),
     ];
     for (path, with_token) in &get_family {
         let (status, body) = get(
@@ -116,6 +130,12 @@ async fn mutating_paths_answer_405_to_get() {
         "/public/checkout",
         "/public/express",
         &format!("/public/cart/{any}/recover"),
+        "/public/cart/pickup",
+        "/public/cart/pickup/reset",
+        "/public/checkout/on-site",
+        "/public/wishlist/reconcile",
+        &format!("/public/wishlist/{any}/remove"),
+        &format!("/public/wishlist/{any}/notify"),
     ];
     for path in mutating_paths {
         let (status, _) = get(&probe.public, path, Some(&token)).await;

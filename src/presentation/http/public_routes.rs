@@ -48,15 +48,21 @@ use backbone_website::exports::{
     WebsiteSurface, WebsiteView,
 };
 
+use crate::application::service::availability_port::{
+    AvailabilityReadPort, RefusingAvailabilityReadPort,
+};
+use crate::application::service::availability_service;
 use crate::application::service::cart_service::{self, CartRow};
 use crate::application::service::catalog_read_port::{CatalogReadPort, RefusingCatalogReadPort};
 use crate::application::service::catalog_service::{self, SortKind};
 use crate::application::service::checkout_service::{self, CheckoutDeps};
+use crate::application::service::collect_service;
 use crate::application::service::party_write_port::{PartyWritePort, RefusingPartyWritePort};
 use crate::application::service::pricing_service::{self, members_only, PricedCartView};
 use crate::application::service::recovery_service;
 use crate::application::service::storefront_error::StorefrontError;
 use crate::application::service::tax_resolve_port::{RefusingTaxResolvePort, TaxResolvePort};
+use crate::application::service::wishlist_service;
 
 /// The header carrying the visitor token (read-only identity).
 pub const VISITOR_TOKEN_HEADER: &str = "x-storefront-token";
@@ -120,6 +126,21 @@ const WRITE_BUDGET: u64 = 60;
 const CHECKOUT_BUDGET: u64 = 12;
 const WINDOW_SECS: u64 = 60;
 
+/// The env var overriding the comparison read's server-side cap.
+pub const COMPARE_CAP_ENV: &str = "STOREFRONT_COMPARE_CAP";
+
+/// The comparison read's SERVER-SIDE cap (the client cannot raise it):
+/// default 4, env-tunable, hard-clamped to 1..=20 — the read's fan-out
+/// (a gated detail + a fresh availability read per row) stays bounded
+/// whatever the query string says.
+pub fn compare_cap() -> usize {
+    std::env::var(COMPARE_CAP_ENV)
+        .ok()
+        .and_then(|raw| raw.trim().parse::<usize>().ok())
+        .unwrap_or(4)
+        .clamp(1, 20)
+}
+
 // ── state ────────────────────────────────────────────────────────────────────
 
 /// The shared public state (cheap-to-clone handles; the pool rides
@@ -136,6 +157,7 @@ pub struct StorefrontPublicState {
     pub party: Arc<dyn PartyWritePort>,
     pub tax: Arc<dyn TaxResolvePort>,
     pub pricing: Arc<dyn CartPricingPort>,
+    pub availability: Arc<dyn AvailabilityReadPort>,
     pub checkout: Arc<CheckoutDeps>,
     throttle: Arc<FixedWindows>,
     trusted_proxy: bool,
@@ -144,7 +166,8 @@ pub struct StorefrontPublicState {
 impl StorefrontPublicState {
     /// Compose over explicit handles — the host's one-call wiring (the
     /// SAME `CartPricingPort` adapter selling uses; one adapter, two
-    /// consumers).
+    /// consumers; the availability adapter rides over the host's
+    /// inventory/manufacturing composition).
     pub fn compose(
         pool: sqlx::PgPool,
         surface: Arc<dyn WebsiteSurface>,
@@ -152,6 +175,7 @@ impl StorefrontPublicState {
         party: Arc<dyn PartyWritePort>,
         tax: Arc<dyn TaxResolvePort>,
         pricing: Arc<dyn CartPricingPort>,
+        availability: Arc<dyn AvailabilityReadPort>,
     ) -> Self {
         let checkout = Arc::new(CheckoutDeps::new(
             pool.clone(),
@@ -159,6 +183,7 @@ impl StorefrontPublicState {
             party.clone(),
             tax.clone(),
             pricing.clone(),
+            availability.clone(),
         ));
         Self {
             pool,
@@ -168,6 +193,7 @@ impl StorefrontPublicState {
             party,
             tax,
             pricing,
+            availability,
             checkout,
             throttle: Arc::new(FixedWindows::new()),
             trusted_proxy: trusted_proxy_from_env(),
@@ -175,9 +201,9 @@ impl StorefrontPublicState {
     }
 
     /// [`Self::compose`] with the FAIL-CLOSED defaults: website's own
-    /// Pg surface over the pool, the refusing catalog/party/tax ports
-    /// (an uncomposed module refuses loudly, never silently
-    /// functional), and a pricing port that refuses every cart.
+    /// Pg surface over the pool, the refusing catalog/party/tax/
+    /// availability ports (an uncomposed module refuses loudly, never
+    /// silently functional), and a pricing port that refuses every cart.
     pub fn from_env(pool: sqlx::PgPool) -> Self {
         let surface = Arc::new(backbone_website::exports::PgWebsiteSurface::new(
             pool.clone(),
@@ -190,6 +216,7 @@ impl StorefrontPublicState {
             Arc::new(RefusingPartyWritePort),
             Arc::new(RefusingTaxResolvePort),
             Arc::new(RefusingCartPricing),
+            Arc::new(RefusingAvailabilityReadPort),
         )
     }
 
@@ -428,10 +455,17 @@ fn priced_cart_json(cart: &CartRow, view: &PricedCartView) -> serde_json::Value 
         "coupon_code": cart.coupon_code,
         "delivery_carrier_id": cart.delivery_carrier_id,
         "billing_party_id": cart.party_id,
+        "fulfillment_mode": cart.fulfillment_mode,
+        "pickup_location_id": cart.pickup_location_id,
         "subtotal": view.subtotal,
         "currency": view.currency,
         "customer_group_id": view.customer_group_id,
         "unavailable_count": view.unavailable_count,
+        "reward_lines": view.reward_lines.iter().map(|r| json!({
+            "item_id": r.item_id,
+            "name": r.name,
+            "quantity": r.quantity,
+        })).collect::<Vec<_>>(),
         "lines": view.lines.iter().map(|l| json!({
             "line_id": l.line_id,
             "item_id": l.item_id,
@@ -528,6 +562,16 @@ struct ExpressBody {
     email: String,
     name: Option<String>,
     notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PickupBody {
+    location_id: Uuid,
+}
+
+#[derive(Debug, Deserialize)]
+struct WishlistAddBody {
+    item_id: Uuid,
 }
 
 // ── handlers ────────────────────────────────────────────────────────────────
@@ -758,6 +802,7 @@ async fn cart_add_line(
     match cart_service::add_line(
         &state.pool,
         state.catalog.as_ref(),
+        state.availability.as_ref(),
         website.company_id,
         &cart,
         body.item_id,
@@ -811,6 +856,7 @@ async fn cart_set_line(
     match cart_service::set_line_quantity(
         &state.pool,
         state.catalog.as_ref(),
+        state.availability.as_ref(),
         website.company_id,
         &cart,
         line_id,
@@ -1351,6 +1397,571 @@ async fn cart_recover(
     }
 }
 
+// ── Click & Collect (§14.2) ────────────────────────────────────────────────
+
+/// The PUBLIC store lookup: active locations for the bound website. A
+/// PURE READ — it switches NO carrier, mints NO cart, writes nothing;
+/// the pin verb is the only writer of a cart's pickup linkage. The
+/// warehouse id never leaves the server (it is an inventory pointer
+/// the pin resolves server-side; the shopper sees a store, not a
+/// warehouse).
+async fn collect_locations(
+    State(state): State<StorefrontPublicState>,
+    headers: HeaderMap,
+) -> Response {
+    let website = match bound_website(&state, &headers).await {
+        Ok(w) => w,
+        Err(resp) => return resp,
+    };
+    if let Err(resp) = gate_identity(&state, &headers, &website).await {
+        return resp;
+    }
+    match collect_service::active_locations_for_website(&state.pool, website.id).await {
+        Ok(rows) => (
+            StatusCode::OK,
+            Json(json!({
+                "website_id": website.id,
+                "locations": rows.iter().map(|l| json!({
+                    "location_id": l.id,
+                    "name": l.name,
+                    "address_line1": l.address_line1,
+                    "city": l.city,
+                    "postal_code": l.postal_code,
+                    "country": l.country,
+                    "latitude": l.latitude,
+                    "longitude": l.longitude,
+                    "opening_hours": l.opening_hours,
+                })).collect::<Vec<_>>(),
+            })),
+        )
+            .into_response(),
+        Err(e) => storefront_error_response(e),
+    }
+}
+
+/// The pickup PIN: the client presents ONLY the opaque location id;
+/// warehouse, address, and fiscal country resolve server-side inside
+/// the verb. Delivery carriers are untouched (a pickup cart simply has
+/// none until it resets to delivery).
+async fn cart_pickup(
+    State(state): State<StorefrontPublicState>,
+    connect_info: Option<ConnectInfo<std::net::SocketAddr>>,
+    headers: HeaderMap,
+    Json(body): Json<PickupBody>,
+) -> Response {
+    let website = match bound_website(&state, &headers).await {
+        Ok(w) => w,
+        Err(resp) => return resp,
+    };
+    let (visitor, principal) = match gate_identity(&state, &headers, &website).await {
+        Ok(pair) => pair,
+        Err(resp) => return resp,
+    };
+    let cart = match own_open_cart(&state, visitor, principal.as_ref()).await {
+        Ok(c) => c,
+        Err(resp) => return resp,
+    };
+    let ip = caller_ip(&headers, connect_info.map(|c| c.0), state.trusted_proxy);
+    if let Err(resp) = gate_throttle(
+        &state,
+        "pickup_set",
+        visitor.or(Some(cart.visitor_id)),
+        principal.as_ref(),
+        &ip,
+        WRITE_BUDGET,
+    ) {
+        return resp;
+    }
+    match checkout_service::set_pickup(&state.checkout, website.company_id, cart.id, body.location_id)
+        .await
+    {
+        Ok((cart, location)) => (
+            StatusCode::OK,
+            Json(json!({
+                "cart_id": cart.id,
+                "fulfillment_mode": cart.fulfillment_mode,
+                "pickup_location_id": location.id,
+                "location_name": location.name,
+                "delivery_carrier_id": cart.delivery_carrier_id,
+            })),
+        )
+            .into_response(),
+        Err(e) => storefront_error_response(e),
+    }
+}
+
+/// The lane RESET: back to delivery. The pickup linkage clears; the
+/// carrier stays whatever the delivery verb last set (possibly none —
+/// place re-checks the delivery lane's own requirement).
+async fn cart_pickup_reset(
+    State(state): State<StorefrontPublicState>,
+    connect_info: Option<ConnectInfo<std::net::SocketAddr>>,
+    headers: HeaderMap,
+) -> Response {
+    let website = match bound_website(&state, &headers).await {
+        Ok(w) => w,
+        Err(resp) => return resp,
+    };
+    let (visitor, principal) = match gate_identity(&state, &headers, &website).await {
+        Ok(pair) => pair,
+        Err(resp) => return resp,
+    };
+    let cart = match own_open_cart(&state, visitor, principal.as_ref()).await {
+        Ok(c) => c,
+        Err(resp) => return resp,
+    };
+    let ip = caller_ip(&headers, connect_info.map(|c| c.0), state.trusted_proxy);
+    if let Err(resp) = gate_throttle(
+        &state,
+        "pickup_reset",
+        visitor.or(Some(cart.visitor_id)),
+        principal.as_ref(),
+        &ip,
+        WRITE_BUDGET,
+    ) {
+        return resp;
+    }
+    match checkout_service::reset_fulfillment(&state.checkout, cart.id).await {
+        Ok(cart) => (
+            StatusCode::OK,
+            Json(json!({
+                "cart_id": cart.id,
+                "fulfillment_mode": cart.fulfillment_mode,
+                "pickup_location_id": cart.pickup_location_id,
+                "delivery_carrier_id": cart.delivery_carrier_id,
+            })),
+        )
+            .into_response(),
+        Err(e) => storefront_error_response(e),
+    }
+}
+
+/// The pay-on-site lane's PLACE: the THIRD checkout arm. The order
+/// mints DRAFT with NO gateway row and NOTHING auto-confirms — the
+/// answer is `pending_pickup` until an officer confirms the store took
+/// the money. Requires a pickup-mode cart (a shipping cart cannot
+/// promise payment at a store).
+async fn checkout_place_on_site(
+    State(state): State<StorefrontPublicState>,
+    connect_info: Option<ConnectInfo<std::net::SocketAddr>>,
+    headers: HeaderMap,
+    Json(body): Json<PlaceBody>,
+) -> Response {
+    let website = match bound_website(&state, &headers).await {
+        Ok(w) => w,
+        Err(resp) => return resp,
+    };
+    let (visitor, principal) = match gate_identity(&state, &headers, &website).await {
+        Ok(pair) => pair,
+        Err(resp) => return resp,
+    };
+    let cart = match own_open_cart(&state, visitor, principal.as_ref()).await {
+        Ok(c) => c,
+        Err(resp) => return resp,
+    };
+    let ip = caller_ip(&headers, connect_info.map(|c| c.0), state.trusted_proxy);
+    if let Err(resp) = gate_throttle(
+        &state,
+        "checkout",
+        visitor.or(Some(cart.visitor_id)),
+        principal.as_ref(),
+        &ip,
+        CHECKOUT_BUDGET,
+    ) {
+        return resp;
+    }
+    match checkout_service::place_on_site(&state.checkout, website.company_id, cart.id, None, body.notes)
+        .await
+    {
+        Ok(checkout) => (StatusCode::CREATED, Json(checkout_json(&checkout))).into_response(),
+        Err(e) => storefront_error_response(e),
+    }
+}
+
+// ── availability + comparison (§14.1/§14.4) ────────────────────────────────
+
+/// The DISPLAY-scope availability read for one item: the publish gate
+/// first (a closed-door item's stock is not a public fact), then the
+/// fresh port read under the website's display scope. Fail-loud: an
+/// unwired availability port refuses with the typed 503 rather than
+/// inventing a number.
+async fn availability_read(
+    State(state): State<StorefrontPublicState>,
+    headers: HeaderMap,
+    Path(item_id): Path<Uuid>,
+) -> Response {
+    let website = match bound_website(&state, &headers).await {
+        Ok(w) => w,
+        Err(resp) => return resp,
+    };
+    if let Err(resp) = gate_identity(&state, &headers, &website).await {
+        return resp;
+    }
+    // The closed door first: no listing, no number.
+    if let Err(e) =
+        cart_service::gated_listing(&state.pool, state.catalog.as_ref(), website.company_id, website.id, item_id)
+            .await
+    {
+        return storefront_error_response(e);
+    }
+    let scope = match availability_service::display_scope_warehouse(&state.pool, website.id).await {
+        Ok(s) => s,
+        Err(e) => return storefront_error_response(e),
+    };
+    match state
+        .availability
+        .free_quantity(website.company_id, item_id, scope)
+        .await
+    {
+        Ok(answer) => (
+            StatusCode::OK,
+            Json(json!({
+                "item_id": item_id,
+                "free_quantity": answer.free_quantity,
+                "kit_exploded": answer.kit_exploded,
+                "warehouse_id": scope,
+            })),
+        )
+            .into_response(),
+        Err(e) => storefront_error_response(availability_service::map_availability_error(e)),
+    }
+}
+
+/// The comparison read: stateless, publish-gate-filtered, capped
+/// SERVER-SIDE (the client cannot raise the cap — an oversized request
+/// is the typed 422, never a truncated answer that silently drops
+/// rows). Availability badges ride the same fresh display-scope read.
+async fn compare_read(
+    State(state): State<StorefrontPublicState>,
+    headers: HeaderMap,
+    axum::extract::RawQuery(raw): axum::extract::RawQuery,
+) -> Response {
+    let website = match bound_website(&state, &headers).await {
+        Ok(w) => w,
+        Err(resp) => return resp,
+    };
+    if let Err(resp) = gate_identity(&state, &headers, &website).await {
+        return resp;
+    }
+    // Repeated `item_id=` keys, order-preserving, deduplicated — UUIDs
+    // need no percent-decoding.
+    let mut item_ids: Vec<Uuid> = Vec::new();
+    for pair in raw.as_deref().unwrap_or("").split('&') {
+        let Some(value) = pair.strip_prefix("item_id=") else {
+            continue;
+        };
+        match Uuid::parse_str(value) {
+            Ok(id) if !item_ids.contains(&id) => item_ids.push(id),
+            Ok(_) => {}
+            Err(_) => {
+                return storefront_error_response(StorefrontError::InvalidInput(
+                    "item_id must be a uuid".into(),
+                ))
+            }
+        }
+    }
+    let cap = compare_cap();
+    if item_ids.len() > cap {
+        return storefront_error_response(StorefrontError::ComparisonCapExceeded {
+            cap,
+            requested: item_ids.len(),
+        });
+    }
+    if item_ids.is_empty() {
+        return storefront_error_response(StorefrontError::InvalidInput(
+            "at least one item_id is required".into(),
+        ));
+    }
+    // Gate + detail per item (bounded by the cap); a closed-door item
+    // is simply ABSENT (the shared closed-door shape — the comparison
+    // never reveals an unpublished item's existence).
+    let mut rows = Vec::with_capacity(item_ids.len());
+    let mut gated_ids = Vec::with_capacity(item_ids.len());
+    for item_id in &item_ids {
+        match catalog_service::public_detail(
+            &state.pool,
+            state.catalog.as_ref(),
+            website.company_id,
+            website.id,
+            *item_id,
+        )
+        .await
+        {
+            Ok(item) => {
+                gated_ids.push(*item_id);
+                rows.push((item, None::<rust_decimal::Decimal>));
+            }
+            Err(StorefrontError::PublishGateRefused) => continue,
+            Err(e) => return storefront_error_response(e),
+        }
+    }
+    if !gated_ids.is_empty() {
+        let scope =
+            match availability_service::display_scope_warehouse(&state.pool, website.id).await {
+                Ok(s) => s,
+                Err(e) => return storefront_error_response(e),
+            };
+        let answers = match state
+            .availability
+            .free_quantities(website.company_id, &gated_ids, scope)
+            .await
+        {
+            Ok(a) => a,
+            Err(e) => return storefront_error_response(availability_service::map_availability_error(e)),
+        };
+        for row in rows.iter_mut() {
+            if let Some(answer) = answers.iter().find(|a| a.item_id == row.0.item_id) {
+                row.1 = Some(answer.free_quantity);
+            }
+        }
+    }
+    (
+        StatusCode::OK,
+        Json(json!({
+            "website_id": website.id,
+            "cap": cap,
+            "items": rows.iter().map(|(item, free)| json!({
+                "item_id": item.item_id,
+                "name": item.name,
+                "media_urls": item.media_urls,
+                "list_price": item.list_price,
+                "compare_at_price": item.compare_at_price,
+                "currency": item.currency,
+                "free_quantity": free,
+            })).collect::<Vec<_>>(),
+        })),
+    )
+        .into_response()
+}
+
+// ── wishlist (§14.3) ────────────────────────────────────────────────────────
+
+/// The union read: the visitor's own rows plus the verified
+/// principal's stamped rows, website-scoped. Derived — zero writes.
+async fn wishlist_read(
+    State(state): State<StorefrontPublicState>,
+    headers: HeaderMap,
+) -> Response {
+    let website = match bound_website(&state, &headers).await {
+        Ok(w) => w,
+        Err(resp) => return resp,
+    };
+    let (visitor, principal) = match gate_identity(&state, &headers, &website).await {
+        Ok(pair) => pair,
+        Err(resp) => return resp,
+    };
+    let Some(visitor_id) = visitor else {
+        return storefront_error_response(StorefrontError::VisitorTokenRequired);
+    };
+    match wishlist_service::wishlist_for(
+        &state.pool,
+        website.id,
+        visitor_id,
+        principal.map(|p| p.user_uuid()),
+    )
+    .await
+    {
+        Ok(rows) => (
+            StatusCode::OK,
+            Json(json!({
+                "website_id": website.id,
+                "items": rows.iter().map(|r| json!({
+                    "item_id": r.item_id,
+                    "notify_on_stock": r.notify_on_stock,
+                })).collect::<Vec<_>>(),
+            })),
+        )
+            .into_response(),
+        Err(e) => storefront_error_response(e),
+    }
+}
+
+async fn wishlist_add(
+    State(state): State<StorefrontPublicState>,
+    connect_info: Option<ConnectInfo<std::net::SocketAddr>>,
+    headers: HeaderMap,
+    Json(body): Json<WishlistAddBody>,
+) -> Response {
+    let website = match bound_website(&state, &headers).await {
+        Ok(w) => w,
+        Err(resp) => return resp,
+    };
+    let (visitor, principal) = match gate_identity(&state, &headers, &website).await {
+        Ok(pair) => pair,
+        Err(resp) => return resp,
+    };
+    let Some(visitor_id) = visitor else {
+        return storefront_error_response(StorefrontError::VisitorTokenRequired);
+    };
+    let ip = caller_ip(&headers, connect_info.map(|c| c.0), state.trusted_proxy);
+    if let Err(resp) =
+        gate_throttle(&state, "wishlist_add", Some(visitor_id), principal.as_ref(), &ip, WRITE_BUDGET)
+    {
+        return resp;
+    }
+    match wishlist_service::add(
+        &state.pool,
+        state.catalog.as_ref(),
+        website.company_id,
+        website.id,
+        visitor_id,
+        body.item_id,
+    )
+    .await
+    {
+        Ok(id) => (
+            StatusCode::CREATED,
+            Json(json!({ "wishlist_item_id": id, "item_id": body.item_id })),
+        )
+            .into_response(),
+        Err(e) => storefront_error_response(e),
+    }
+}
+
+async fn wishlist_remove(
+    State(state): State<StorefrontPublicState>,
+    connect_info: Option<ConnectInfo<std::net::SocketAddr>>,
+    headers: HeaderMap,
+    Path(item_id): Path<Uuid>,
+) -> Response {
+    let website = match bound_website(&state, &headers).await {
+        Ok(w) => w,
+        Err(resp) => return resp,
+    };
+    let (visitor, principal) = match gate_identity(&state, &headers, &website).await {
+        Ok(pair) => pair,
+        Err(resp) => return resp,
+    };
+    let Some(visitor_id) = visitor else {
+        return storefront_error_response(StorefrontError::VisitorTokenRequired);
+    };
+    let ip = caller_ip(&headers, connect_info.map(|c| c.0), state.trusted_proxy);
+    if let Err(resp) = gate_throttle(
+        &state,
+        "wishlist_remove",
+        Some(visitor_id),
+        principal.as_ref(),
+        &ip,
+        WRITE_BUDGET,
+    ) {
+        return resp;
+    }
+    match wishlist_service::remove(
+        &state.pool,
+        website.id,
+        visitor_id,
+        principal.map(|p| p.user_uuid()),
+        item_id,
+    )
+    .await
+    {
+        Ok(()) => (StatusCode::OK, Json(json!({ "removed": true, "item_id": item_id }))).into_response(),
+        Err(e) => storefront_error_response(e),
+    }
+}
+
+/// The login-time reconcile: stamps the visitor's live rows with the
+/// verified principal (rows never move — the stamp is what the union
+/// read follows). Requires BOTH rungs: a visitor token AND a verified
+/// principal.
+async fn wishlist_reconcile(
+    State(state): State<StorefrontPublicState>,
+    connect_info: Option<ConnectInfo<std::net::SocketAddr>>,
+    headers: HeaderMap,
+) -> Response {
+    let website = match bound_website(&state, &headers).await {
+        Ok(w) => w,
+        Err(resp) => return resp,
+    };
+    let (visitor, principal) = match gate_identity(&state, &headers, &website).await {
+        Ok(pair) => pair,
+        Err(resp) => return resp,
+    };
+    let Some(visitor_id) = visitor else {
+        return storefront_error_response(StorefrontError::VisitorTokenRequired);
+    };
+    let Some(principal) = principal else {
+        return storefront_error_response(StorefrontError::PrincipalRequired);
+    };
+    let ip = caller_ip(&headers, connect_info.map(|c| c.0), state.trusted_proxy);
+    if let Err(resp) = gate_throttle(
+        &state,
+        "wishlist_reconcile",
+        Some(visitor_id),
+        Some(&principal),
+        &ip,
+        WRITE_BUDGET,
+    ) {
+        return resp;
+    }
+    match wishlist_service::reconcile(
+        &state.pool,
+        website.id,
+        visitor_id,
+        principal.user_uuid(),
+        &principal.email,
+    )
+    .await
+    {
+        Ok(stamped) => (
+            StatusCode::OK,
+            Json(json!({ "reconciled": stamped, "visitor_id": visitor_id })),
+        )
+            .into_response(),
+        Err(e) => storefront_error_response(e),
+    }
+}
+
+/// Arm the back-in-stock wait on a wish the caller already holds. A
+/// verified principal present at arm time refreshes the contact stamp
+/// (the verified-email-only rule's one other writer — no request body
+/// address is ever accepted).
+async fn wishlist_notify(
+    State(state): State<StorefrontPublicState>,
+    connect_info: Option<ConnectInfo<std::net::SocketAddr>>,
+    headers: HeaderMap,
+    Path(item_id): Path<Uuid>,
+) -> Response {
+    let website = match bound_website(&state, &headers).await {
+        Ok(w) => w,
+        Err(resp) => return resp,
+    };
+    let (visitor, principal) = match gate_identity(&state, &headers, &website).await {
+        Ok(pair) => pair,
+        Err(resp) => return resp,
+    };
+    let Some(visitor_id) = visitor else {
+        return storefront_error_response(StorefrontError::VisitorTokenRequired);
+    };
+    let ip = caller_ip(&headers, connect_info.map(|c| c.0), state.trusted_proxy);
+    if let Err(resp) = gate_throttle(
+        &state,
+        "wishlist_notify",
+        Some(visitor_id),
+        principal.as_ref(),
+        &ip,
+        WRITE_BUDGET,
+    ) {
+        return resp;
+    }
+    match wishlist_service::arm_notify(
+        &state.pool,
+        website.id,
+        visitor_id,
+        item_id,
+        principal.map(|p| (p.user_uuid(), p.email)),
+    )
+    .await
+    {
+        Ok(()) => (
+            StatusCode::OK,
+            Json(json!({ "notify_on_stock": true, "item_id": item_id })),
+        )
+            .into_response(),
+        Err(e) => storefront_error_response(e),
+    }
+}
+
 fn checkout_json(checkout: &checkout_service::CheckoutRow) -> serde_json::Value {
     json!({
         "checkout_id": checkout.id,
@@ -1362,6 +1973,7 @@ fn checkout_json(checkout: &checkout_service::CheckoutRow) -> serde_json::Value 
         "provider_reference": checkout.provider_reference,
         "amount_total": checkout.amount_total,
         "state": checkout.state,
+        "pickup_location_id": checkout.pickup_location_id,
         "placed_at": checkout.placed_at,
         "settled_at": checkout.settled_at,
     })
@@ -1374,6 +1986,9 @@ pub fn storefront_public_routes(state: StorefrontPublicState) -> Router {
         .route("/public/catalog", get(catalog_list))
         .route("/public/catalog/:item_id", get(catalog_detail))
         .route("/public/categories", get(catalog_categories))
+        .route("/public/availability/:item_id", get(availability_read))
+        .route("/public/compare", get(compare_read))
+        .route("/public/collect/locations", get(collect_locations))
         .route("/public/cart", get(cart_read).post(cart_create))
         .route("/public/cart/lines", post(cart_add_line))
         .route("/public/cart/lines/:line_id", post(cart_set_line))
@@ -1382,13 +1997,20 @@ pub fn storefront_public_routes(state: StorefrontPublicState) -> Router {
         .route("/public/cart/coupon/remove", post(cart_remove_coupon))
         .route("/public/cart/billing", post(cart_billing))
         .route("/public/cart/delivery", post(cart_delivery))
+        .route("/public/cart/pickup", post(cart_pickup))
+        .route("/public/cart/pickup/reset", post(cart_pickup_reset))
         .route("/public/session/bind", post(session_bind))
         .route("/public/cart/adopt", post(cart_adopt))
         .route("/public/checkout", post(checkout_place))
+        .route("/public/checkout/on-site", post(checkout_place_on_site))
         .route("/public/checkout/:checkout_id", get(checkout_read))
         .route("/public/express", post(express_checkout))
         .route("/public/abandoned", get(abandoned_read))
         .route("/public/cart/:cart_id/recover", post(cart_recover))
+        .route("/public/wishlist", get(wishlist_read).post(wishlist_add))
+        .route("/public/wishlist/reconcile", post(wishlist_reconcile))
+        .route("/public/wishlist/:item_id/remove", post(wishlist_remove))
+        .route("/public/wishlist/:item_id/notify", post(wishlist_notify))
         .with_state(state)
 }
 

@@ -47,6 +47,18 @@ pub struct TestDb {
 
 impl TestDb {
     pub async fn new(marker: &str) -> Self {
+        Self::boot(marker, &[]).await
+    }
+
+    /// The probe database for probes that ALSO touch the inventory
+    /// checkout's tables (the collect registry's warehouse fence reads
+    /// `inventory.warehouses`): applies backbone-inventory's migrations
+    /// on top of the standard sibling set.
+    pub async fn new_with_inventory(marker: &str) -> Self {
+        Self::boot(marker, &["backbone-inventory"]).await
+    }
+
+    async fn boot(marker: &str, extra_siblings: &[&str]) -> Self {
         let url = admin_url();
         let admin = match PgPoolOptions::new()
             .max_connections(4)
@@ -102,7 +114,7 @@ impl TestDb {
         if let Err(what) = apply_module_migrations(&pool, marker).await {
             skipped(&what);
         }
-        if let Err(what) = apply_sibling_migrations(&pool, marker).await {
+        if let Err(what) = apply_sibling_migrations(&pool, marker, extra_siblings).await {
             skipped(&what);
         }
         Self { pool, name, admin }
@@ -213,11 +225,21 @@ async fn apply_module_migrations(pool: &PgPool, marker: &str) -> Result<(), Stri
 /// transactions). Overridable for hermetic runs via
 /// `STOREFRONT_TEST_MODULES_DIR` (a directory holding the three
 /// checkouts); default is this crate's siblings in the modules tree.
-async fn apply_sibling_migrations(pool: &PgPool, marker: &str) -> Result<(), String> {
+async fn apply_sibling_migrations(
+    pool: &PgPool,
+    marker: &str,
+    extra_siblings: &[&str],
+) -> Result<(), String> {
     let manifest = env!("CARGO_MANIFEST_DIR");
     let root = std::env::var("STOREFRONT_TEST_MODULES_DIR")
         .unwrap_or_else(|_| format!("{manifest}/.."));
-    for sibling in ["backbone-website", "backbone-selling", "backbone-payment-gateway"] {
+    let mut siblings = vec![
+        "backbone-website",
+        "backbone-selling",
+        "backbone-payment-gateway",
+    ];
+    siblings.extend_from_slice(extra_siblings);
+    for sibling in siblings {
         apply_migration_dir(
             pool,
             marker,
@@ -238,11 +260,15 @@ use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use rust_decimal::Decimal;
 
+use backbone_storefront::application::service::availability_port::{
+    AvailabilityPortError, AvailabilityReadPort, ItemAvailability,
+};
 use backbone_storefront::application::service::catalog_read_port::{
     CatalogPortError, CatalogReadPort, ItemSnapshot,
 };
 use backbone_storefront::application::service::notifier_port::{
-    RecoveryDelivery, RecoveryMessage, RecoveryNotifier,
+    RecoveryDelivery, RecoveryMessage, RecoveryNotifier, StockAlertDelivery, StockAlertMessage,
+    StockAlertNotifier,
 };
 use backbone_storefront::application::service::party_write_port::{
     PartyPortError, PartyWritePort,
@@ -413,8 +439,65 @@ impl TaxResolvePort for StubTax {
     }
 }
 
+/// The RECORDING tax resolver: one rate per jurisdiction, `None` being
+/// the company-home arm, and every call's jurisdiction recorded — the
+/// fiscal-pin probe asserts WHICH arm each place resolved under (the
+/// distinction a fixed-rate stub can never see). An unprogrammed
+/// jurisdiction REFUSES: a place resolving somewhere the probe did not
+/// arm must explode the probe, not silently borrow the home rate.
+pub struct RecordingTax {
+    home_rate: Decimal,
+    keyed: HashMap<String, Decimal>,
+    pub calls: Mutex<Vec<Option<String>>>,
+}
+
+impl RecordingTax {
+    /// The home arm's rate plus the explicitly armed jurisdictions.
+    pub fn new(home_rate: Decimal, keyed: Vec<(String, Decimal)>) -> Self {
+        Self {
+            home_rate,
+            keyed: keyed.into_iter().collect(),
+            calls: Mutex::new(Vec::new()),
+        }
+    }
+
+    /// Did one place resolve under exactly this jurisdiction?
+    pub fn saw(&self, jurisdiction: Option<&str>) -> bool {
+        self.calls
+            .lock()
+            .map(|c| c.iter().any(|j| j.as_deref() == jurisdiction))
+            .unwrap_or(false)
+    }
+
+    /// How many resolutions ran.
+    pub fn call_count(&self) -> usize {
+        self.calls.lock().map(|c| c.len()).unwrap_or(0)
+    }
+}
+
+#[async_trait]
+impl TaxResolvePort for RecordingTax {
+    async fn resolve_rate(
+        &self,
+        _company_id: Uuid,
+        delivery_jurisdiction: Option<&str>,
+    ) -> Result<Decimal, TaxPortError> {
+        if let Ok(mut calls) = self.calls.lock() {
+            calls.push(delivery_jurisdiction.map(str::to_string));
+        }
+        match delivery_jurisdiction {
+            None => Ok(self.home_rate),
+            Some(code) => self.keyed.get(code).copied().ok_or_else(|| TaxPortError {
+                code: "probe_jurisdiction_not_armed".into(),
+                message: format!("the recording stub has no rate armed for {code}"),
+            }),
+        }
+    }
+}
+
 use backbone_selling::application::service::selling_cart_pricing::{
     CartPricingError, CartPricingPort, CartPriceRequest, PricedCart, PricedCartLine,
+    PricedRewardLine,
 };
 
 /// The stub cart-pricing adapter: prices every line as
@@ -422,10 +505,13 @@ use backbone_selling::application::service::selling_cart_pricing::{
 /// `total == Σ net_line_total` exactly (the port's own conservation
 /// contract). Probes program one factor per segment; `None` (no
 /// segment) has its own. Records every request for the mapping
-/// assertions.
+/// assertions. Reward lines are programmable (the coupon-claim probe
+/// arms a "buy X get Y" grant) and are NEVER priced into the total —
+/// the port's own reward contract.
 pub struct StubPricing {
     factors: HashMap<Option<Uuid>, Decimal>,
     pub requests: Mutex<Vec<CartPriceRequest>>,
+    rewards: Mutex<Vec<PricedRewardLine>>,
 }
 
 impl StubPricing {
@@ -439,6 +525,18 @@ impl StubPricing {
         Self {
             factors,
             requests: Mutex::new(Vec::new()),
+            rewards: Mutex::new(Vec::new()),
+        }
+    }
+
+    /// Arm a reward grant: every priced answer carries these reward
+    /// lines (the loyalty probe's "buy X get Y" shape).
+    pub fn arm_rewards(&self, rewards: Vec<(Uuid, Decimal)>) {
+        if let Ok(mut armed) = self.rewards.lock() {
+            *armed = rewards
+                .into_iter()
+                .map(|(item_id, quantity)| PricedRewardLine { item_id, quantity })
+                .collect();
         }
     }
 
@@ -466,9 +564,14 @@ impl CartPricingPort for StubPricing {
                 net_line_total: net,
             });
         }
+        let reward_lines = self
+            .rewards
+            .lock()
+            .map(|armed| armed.clone())
+            .unwrap_or_default();
         Ok(PricedCart {
             lines,
-            reward_lines: Vec::new(),
+            reward_lines,
             total,
         })
     }
@@ -490,6 +593,131 @@ impl RecoveryNotifier for StubNotifier {
             ));
         }
         Ok(RecoveryDelivery::Sent)
+    }
+}
+
+/// The stub stock-alert notifier: sends are recorded (addresses +
+/// item ids — the probe asserts exactly who was told what); a probe
+/// can arm a transport FAILURE to prove the arm survives a refused
+/// send.
+#[derive(Default)]
+pub struct StubStockNotifier {
+    pub sent: Mutex<Vec<(Uuid, String)>>, // (item_id, to_address)
+    pub fail_all: std::sync::atomic::AtomicBool,
+}
+
+impl StubStockNotifier {
+    /// Make every subsequent send fail at the transport (Err).
+    pub fn fail_transport(&self) {
+        self.fail_all.store(true, Ordering::SeqCst);
+    }
+
+    /// Did one item's alert reach one address?
+    pub fn told(&self, item_id: Uuid, address: &str) -> bool {
+        self.sent
+            .lock()
+            .map(|s| s.iter().any(|(i, a)| *i == item_id && a == address))
+            .unwrap_or(false)
+    }
+}
+
+#[async_trait]
+impl StockAlertNotifier for StubStockNotifier {
+    async fn send_stock_alert(&self, message: &StockAlertMessage<'_>) -> Result<StockAlertDelivery, String> {
+        if self.fail_all.load(Ordering::SeqCst) {
+            return Err("probe-armed transport failure".into());
+        }
+        if let Ok(mut sent) = self.sent.lock() {
+            sent.push((message.item_id, message.to_address.to_string()));
+        }
+        Ok(StockAlertDelivery::Sent)
+    }
+}
+
+/// The stub availability adapter: a programmed free-quantity table per
+/// (item, warehouse scope). `None` scope (the company aggregate) and
+/// explicit warehouses are separate rows; an unprogrammed item REFUSES
+/// (fail-loud, never an implicit zero); a probe can arm a global
+/// refusal to prove the fail-closed 503 family.
+pub struct StubAvailability {
+    table: Mutex<HashMap<(Uuid, Option<Uuid>), Decimal>>,
+    refuse_all: std::sync::atomic::AtomicBool,
+}
+
+impl StubAvailability {
+    /// An empty table — items must be stocked explicitly.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Program the AGGREGATE (no-warehouse) free quantity for one item.
+    pub fn stock(&self, item_id: Uuid, free: Decimal) {
+        self.scoped_stock(item_id, None, free);
+    }
+
+    /// Program one (item, warehouse) pair's free quantity.
+    pub fn scoped_stock(&self, item_id: Uuid, warehouse: Option<Uuid>, free: Decimal) {
+        if let Ok(mut table) = self.table.lock() {
+            table.insert((item_id, warehouse), free);
+        }
+    }
+
+    /// Arm the port-wide refusal (the unwired-port posture).
+    pub fn refuse_everything(&self) {
+        self.refuse_all.store(true, Ordering::SeqCst);
+    }
+}
+
+impl Default for StubAvailability {
+    fn default() -> Self {
+        Self {
+            table: Mutex::new(HashMap::new()),
+            refuse_all: std::sync::atomic::AtomicBool::new(false),
+        }
+    }
+}
+
+fn availability_refused() -> AvailabilityPortError {
+    AvailabilityPortError {
+        code: "availability_port_unwired".into(),
+        message: "no availability adapter is installed".into(),
+    }
+}
+
+#[async_trait]
+impl AvailabilityReadPort for StubAvailability {
+    async fn free_quantity(
+        &self,
+        _company_id: Uuid,
+        item_id: Uuid,
+        warehouse_id: Option<Uuid>,
+    ) -> Result<ItemAvailability, AvailabilityPortError> {
+        if self.refuse_all.load(Ordering::SeqCst) {
+            return Err(availability_refused());
+        }
+        self.table
+            .lock()
+            .map_err(|_| availability_refused())?
+            .get(&(item_id, warehouse_id))
+            .map(|free| ItemAvailability {
+                item_id,
+                free_quantity: *free,
+                kit_exploded: false,
+            })
+            .ok_or_else(availability_refused)
+    }
+
+    async fn free_quantities(
+        &self,
+        company_id: Uuid,
+        item_ids: &[Uuid],
+        warehouse_id: Option<Uuid>,
+    ) -> Result<Vec<ItemAvailability>, AvailabilityPortError> {
+        let mut out = Vec::with_capacity(item_ids.len());
+        for item_id in item_ids {
+            out.push(self.free_quantity(company_id, *item_id, warehouse_id).await?);
+        }
+        Ok(out)
     }
 }
 
@@ -779,6 +1007,60 @@ pub async fn seed_listing(
     item_id
 }
 
+/// Seed one live inventory warehouse owned by the company (the row the
+/// collect registry's warehouse fence validates against; requires the
+/// probe database booted with `TestDb::new_with_inventory`).
+pub async fn seed_warehouse(
+    pool: &sqlx::PgPool,
+    company_id: Uuid,
+    code: &str,
+) -> Uuid {
+    let (id,): (Uuid,) = sqlx::query_as(
+        r#"
+        INSERT INTO inventory.warehouses (company_id, code, name)
+        VALUES ($1, $2, $3)
+        RETURNING id
+        "#,
+    )
+    .bind(company_id)
+    .bind(code)
+    .bind(format!("probe warehouse {code}"))
+    .fetch_one(pool)
+    .await
+    .unwrap_or_else(|e| panic!("seed warehouse failed: {e}"));
+    id
+}
+
+/// Seed one merchant-declared pickup location on the website (the
+/// officer upsert verb's row, written directly for fixture brevity —
+/// the collect probe drives the VERB itself). Returns the location id.
+pub async fn seed_pickup_location(
+    pool: &sqlx::PgPool,
+    website_id: Uuid,
+    name: &str,
+    warehouse_id: Option<Uuid>,
+    country: &str,
+    active: bool,
+) -> Uuid {
+    let (id,): (Uuid,) = sqlx::query_as(
+        r#"
+        INSERT INTO storefront.pickup_locations
+            (website_id, warehouse_id, name, country, is_active)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id
+        "#,
+    )
+    .bind(website_id)
+    .bind(warehouse_id)
+    .bind(name)
+    .bind(country)
+    .bind(active)
+    .fetch_one(pool)
+    .await
+    .unwrap_or_else(|e| panic!("seed pickup location failed: {e}"));
+    id
+}
+
 // ── the composed probe stack (one pool, one stub set, both routers) ────────
 
 use backbone_storefront::presentation::http::{
@@ -799,6 +1081,8 @@ pub struct Probe {
     pub tax: Arc<StubTax>,
     pub pricing: Arc<StubPricing>,
     pub notifier: Arc<StubNotifier>,
+    pub availability: Arc<StubAvailability>,
+    pub stock_notifier: Arc<StubStockNotifier>,
     pub public: axum::Router,
     pub admin: axum::Router,
     _db: TestDb,
@@ -806,7 +1090,8 @@ pub struct Probe {
 
 impl Probe {
     /// Boot a probe with a seeded website + the default stub set
-    /// (pricing factor 1.0, tax 0.0) and both routers composed.
+    /// (pricing factor 1.0, tax 0.0, availability programmed generous)
+    /// and both routers composed.
     pub async fn boot(marker: &str) -> Self {
         Self::over(TestDb::new(marker).await).await
     }
@@ -822,6 +1107,8 @@ impl Probe {
         let tax = Arc::new(StubTax(Decimal::ZERO));
         let pricing = Arc::new(StubPricing::new(Decimal::ONE, Vec::new()));
         let notifier = Arc::new(StubNotifier::default());
+        let availability = Arc::new(StubAvailability::new());
+        let stock_notifier = Arc::new(StubStockNotifier::default());
         let surface = Arc::new(StubSurface::binding(view.clone()));
         let public = storefront_public_routes(StorefrontPublicState::compose(
             pool.clone(),
@@ -830,10 +1117,14 @@ impl Probe {
             party.clone(),
             tax.clone(),
             pricing.clone(),
+            availability.clone(),
         ));
         let mut admin_state = StorefrontAdminState::new(pool.clone());
         admin_state.install_party_port(party.clone());
         admin_state.install_notifier(notifier.clone());
+        admin_state.install_catalog_port(catalog.clone());
+        admin_state.install_availability_port(availability.clone());
+        admin_state.install_stock_notifier(stock_notifier.clone());
         let admin = storefront_admin_routes(admin_state);
         Self {
             pool,
@@ -844,6 +1135,8 @@ impl Probe {
             tax,
             pricing,
             notifier,
+            availability,
+            stock_notifier,
             public,
             admin,
             _db: db,
@@ -891,6 +1184,57 @@ pub async fn send(
         .unwrap()
         .to_vec();
     (status, bytes)
+}
+
+/// Fire one request carrying BOTH identities: the visitor token
+/// header AND a verified-principal bearer (the reconciled shopper
+/// shape — reconcile, arm, and the union read ride this pair).
+pub async fn send_dual(
+    app: &axum::Router,
+    method: &str,
+    path: &str,
+    token: Option<&str>,
+    bearer: Option<&str>,
+    body: Option<&str>,
+) -> (StatusCode, Vec<u8>) {
+    let mut builder = Request::builder()
+        .method(method)
+        .uri(path)
+        .header(header::HOST, PROBE_HOST);
+    if let Some(token) = token {
+        builder = builder.header("x-storefront-token", token);
+    }
+    if let Some(bearer) = bearer {
+        builder = builder.header(header::AUTHORIZATION, format!("Bearer {bearer}"));
+    }
+    let request = match body {
+        Some(json) => builder
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(json.to_string()))
+            .unwrap(),
+        None => builder.body(Body::empty()).unwrap(),
+    };
+    use tower::ServiceExt;
+    let response = app.clone().oneshot(request).await.unwrap();
+    let status = response.status();
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap()
+        .to_vec();
+    (status, bytes)
+}
+
+/// A POST with the visitor token AND the principal bearer.
+pub async fn post_dual(
+    app: &axum::Router,
+    path: &str,
+    token: Option<&str>,
+    bearer: Option<&str>,
+    body: &str,
+) -> (StatusCode, serde_json::Value) {
+    let (status, bytes) = send_dual(app, "POST", path, token, bearer, Some(body)).await;
+    let json = serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::Null);
+    (status, json)
 }
 
 /// A GET with the probe visitor token (the common shopper shape).
@@ -941,6 +1285,8 @@ pub const CHECKSUMMED_TABLES: &[&str] = &[
     "storefront.shopper_parties",
     "storefront.recovery_invites",
     "storefront.storefront_audit_log",
+    "storefront.pickup_locations",
+    "storefront.wishlist_items",
     "website.websites",
     "website.visitors",
     "selling.sales_orders",

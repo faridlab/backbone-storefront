@@ -16,7 +16,7 @@ use backbone_storefront::application::service::party_write_port::PartyWritePort;
 use backbone_storefront::application::service::pricing_service;
 
 use super::common::{
-    seed_listing, seed_visitor, post, StubCatalog, StubParty, StubPricing, StubSurface, StubTax,
+    seed_listing, seed_visitor, post, StubAvailability, StubCatalog, StubParty, StubPricing, StubSurface, StubTax,
     TestDb,
 };
 
@@ -42,6 +42,7 @@ async fn two_websites_price_differently_through_one_adapter() {
         Decimal::ONE,
         vec![(group_a, dec(0, 80)), (group_b, dec(0, 50))],
     ));
+    let availability = Arc::new(StubAvailability::new());
 
     // Each website defaults its guest pricing to its own segment.
     for (site, group) in [(site_a.id, group_a), (site_b.id, group_b)] {
@@ -53,6 +54,7 @@ async fn two_websites_price_differently_through_one_adapter() {
                 access_gate: "open".into(),
                 default_customer_group_id: Some(group),
                 recovery_template_ref: None,
+                display_warehouse_id: None,
             },
             ActorRef::system(),
         )
@@ -62,6 +64,7 @@ async fn two_websites_price_differently_through_one_adapter() {
 
     // ONE catalog item, merchandised + priced 100 on BOTH websites.
     let item = seed_listing(&pool, &catalog, site_a.id, "Shared", dec(100, 0), true).await;
+    availability.stock(item, Decimal::new(10000, 0));
     let listing_b = catalog_service::upsert_listing(
         &pool,
         site_b.id,
@@ -99,10 +102,10 @@ async fn two_websites_price_differently_through_one_adapter() {
         .await
         .unwrap()
         .cart;
-    cart_service::add_line(&pool, catalog.as_ref(), company, &cart_a, item, Decimal::ONE)
+    cart_service::add_line(&pool, catalog.as_ref(), availability.as_ref(), company, &cart_a, item, Decimal::ONE)
         .await
         .unwrap();
-    cart_service::add_line(&pool, catalog.as_ref(), company, &cart_b, item, Decimal::ONE)
+    cart_service::add_line(&pool, catalog.as_ref(), availability.as_ref(), company, &cart_b, item, Decimal::ONE)
         .await
         .unwrap();
 
@@ -167,6 +170,7 @@ async fn two_websites_price_differently_through_one_adapter() {
         party.clone(),
         tax.clone(),
         pricing.clone(),
+        availability.clone(),
     );
     let app = backbone_storefront::presentation::http::storefront_public_routes(state);
     let (status, body) = post(

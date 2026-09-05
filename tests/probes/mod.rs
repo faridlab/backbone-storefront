@@ -17,17 +17,40 @@
 //! - `abandoned`             — gate 12 (derived abandonment)
 //! - `installs_inert`        — gate 13 (bring-up writes nothing)
 //! - `exclusions`            — gate 14 (the module's exclusions)
+//!
+//! Shopper-companions gates (spec §14.6):
+//! - `availability_gate`     — the fail-closed stock gate (unwired 503,
+//!                             the typed 422 clamp, backorder skip,
+//!                             the place-time whole-basket check)
+//! - `collect`               — Click & Collect (registry upsert with
+//!                             its warehouse/website fences, the pure
+//!                             lookup, the server-side pin, reset)
+//! - `fiscal_pin`            — the pickup fiscal pin (a pickup place
+//!                             resolves tax under the store's country,
+//!                             a delivery place under the home arm; a
+//!                             countryless pinned store refuses the
+//!                             place with the typed fiscal guard)
+//! - `pay_on_site`           — the third checkout lane (pending_pickup,
+//!                             never auto-confirmed, officer confirm)
+//! - `wishlist`              — the visitor-backed wishlist + merge
+//! - `stock_wait`            — the back-in-stock arm + officer send
 
 pub mod abandoned;
+pub mod availability_gate;
+pub mod collect;
 pub mod common;
 pub mod coupon_discipline;
 pub mod exclusions;
 pub mod express_determinism;
+pub mod fiscal_pin;
 pub mod free_arm;
 pub mod identity_determinism;
 pub mod installs_inert;
 pub mod mutating_gets;
+pub mod pay_on_site;
 pub mod pricing_mapping;
 pub mod publish_gate;
 pub mod row_lock;
 pub mod settle_confirm;
+pub mod stock_wait;
+pub mod wishlist;
