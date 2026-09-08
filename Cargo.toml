@@ -38,7 +38,7 @@ backbone-messaging = { git = "https://github.com/faridlab/backbone-framework", t
 backbone-selling = { git = "https://github.com/faridlab/backbone-selling", tag = "v0.9.4" }
 backbone-website = { git = "https://github.com/faridlab/backbone-website", tag = "v0.3.2" }
 backbone-portal = { git = "https://github.com/faridlab/backbone-portal", tag = "v0.2.2" }
-backbone-payment-gateway = { git = "https://github.com/faridlab/backbone-payment-gateway", tag = "v0.3.4" }
+backbone-payment-gateway = { git = "https://github.com/faridlab/backbone-payment-gateway", tag = "v0.3.5" }
 
 # Sibling modules NOT consumed by design — recorded here so no later seat
 # adds them casually (the website precedent):
