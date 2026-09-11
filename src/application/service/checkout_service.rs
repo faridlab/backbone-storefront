@@ -42,6 +42,7 @@
 //! of its outbound events drive storefront behavior.
 
 use rust_decimal::Decimal;
+use sqlx::Row;
 use uuid::Uuid;
 
 use backbone_orm::company_scope;
@@ -154,24 +155,41 @@ struct ProviderRow {
     code: String,
 }
 
+/// The provider read rides the org-scoped lane, never the checkout's outer
+/// transaction: the gateway tables are org-fenced by the composing service
+/// (FORCE row-level security keyed on `app.scope_unit_ids`), and the request
+/// scope binds that variable on its own dedicated connection — the outer
+/// transaction's connection carries no scope, so a fenced read there sees
+/// zero providers and every paid placement would fail as provider-less.
+/// [`org_scope::fetch_optional_row_scoped`] picks the request-dedicated
+/// connection when a scope is bound and the plain pool otherwise, so
+/// module-only scratch databases (no decorator, no fence) read identically.
 async fn active_provider(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    pool: &sqlx::PgPool,
     company_id: Uuid,
 ) -> Result<Option<ProviderRow>, StorefrontError> {
-    let row: Option<(Uuid, String)> = sqlx::query_as(
-        r#"
-        SELECT id, code::text
-        FROM payment_gateway.payment_gateway_providers
-        WHERE org_unit_id = $1 AND status = 'active'
-          AND (metadata->>'deleted_at') IS NULL
-        ORDER BY code ASC
-        LIMIT 1
-        "#,
+    let row = org_scope::fetch_optional_row_scoped(
+        pool,
+        sqlx::query(
+            r#"
+            SELECT id, code::text
+            FROM payment_gateway.payment_gateway_providers
+            WHERE org_unit_id = $1 AND status = 'active'
+              AND (metadata->>'deleted_at') IS NULL
+            ORDER BY code ASC
+            LIMIT 1
+            "#,
+        )
+        .bind(company_id),
     )
-    .bind(company_id)
-    .fetch_optional(exec)
     .await?;
-    Ok(row.map(|(id, code)| ProviderRow { id, code }))
+    match row {
+        Some(row) => Ok(Some(ProviderRow {
+            id: row.try_get("id")?,
+            code: row.try_get("code")?,
+        })),
+        None => Ok(None),
+    }
 }
 
 /// The carrier-ownership check (the clean-404 posture, mirrored from
@@ -775,10 +793,7 @@ async fn place_with_lane(
             .await?;
             ("confirmed_free", None, None, None)
         } else {
-            // PAID ARM (§7.3): the company's active provider mints the
-            // PENDING gateway transaction INSIDE the lock scope, keyed by
-            // the storefront-minted reference.
-            let provider = active_provider(&mut *tx, company_id)
+            let provider = active_provider(&deps.pool, company_id)
                 .await?
                 .ok_or(StorefrontError::ProviderUnavailable)?;
             let reference = format!("stf-{checkout_id}");
