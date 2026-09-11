@@ -181,7 +181,6 @@ async fn the_notdraft_double_guard_survives_the_crash_window() {
     selling
         .confirm_sales_order(
             order_id,
-            company,
             &NoUnitCostPort,
             &NoStockFulfillmentPort,
             &NoServiceCatalog,

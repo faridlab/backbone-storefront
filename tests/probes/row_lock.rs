@@ -158,13 +158,13 @@ async fn concurrent_delivery_and_place_never_tear_and_totals_conserve() {
         carrier.is_none() || carrier == Some(carrier_a) || carrier == Some(carrier_b),
         "carrier is a whole racer value, never torn: {carrier:?}"
     );
-    let orders = sqlx::query_scalar::<_, i64>(
-        "SELECT count(*) FROM selling.sales_orders WHERE company_id = $1",
-    )
-    .bind(company)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    // The order table is org-scoped substrate (ADR-0029): the module
+    // keys nothing on tenancy, so the probe counts rows outright — this
+    // disposable database carries only this probe's single company.
+    let orders = sqlx::query_scalar::<_, i64>("SELECT count(*) FROM selling.sales_orders")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
     assert_eq!(orders, 1, "no duplicate orders escaped the lock");
 
     let sessions = sqlx::query_scalar::<_, i64>(
@@ -242,13 +242,13 @@ async fn place_refuses_a_closed_cart_under_the_lock() {
         ),
         "got {err:?}"
     );
-    let orders = sqlx::query_scalar::<_, i64>(
-        "SELECT count(*) FROM selling.sales_orders WHERE company_id = $1",
-    )
-    .bind(company)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    // Same outright count as above: the org-scoped order table carries
+    // no company column, and this probe's database holds one company's
+    // traffic only.
+    let orders = sqlx::query_scalar::<_, i64>("SELECT count(*) FROM selling.sales_orders")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
     assert_eq!(orders, 1);
     db.dispose().await;
 }

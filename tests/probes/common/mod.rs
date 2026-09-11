@@ -133,6 +133,27 @@ impl TestDb {
         {
             skipped(&format!("gateway org stand-in failed: {e}"));
         }
+        // The selling substrate is tenancy-stripped the same way
+        // (ADR-0029): the carrier registry and the order tables carry
+        // org_unit_id only after the composing service's decorator
+        // installs it. The carrier-ownership read keys on org_unit_id,
+        // so the carrier table needs the composed column; the order
+        // table gets the same stand-in for shape parity. Seeded rows
+        // bind the probe's company id as the org unit — the composed
+        // shape's pairing, no fence installed. Orders minted through
+        // selling's service leave the column NULL here (the decorator's
+        // fill trigger is a composition artifact), which no module SQL
+        // keys on: order reads resolve by id.
+        for table in ["selling.delivery_carriers", "selling.sales_orders"] {
+            if let Err(e) = sqlx::query(&format!(
+                "ALTER TABLE {table} ADD COLUMN IF NOT EXISTS org_unit_id uuid"
+            ))
+            .execute(&pool)
+            .await
+            {
+                skipped(&format!("selling org stand-in failed for {table}: {e}"));
+            }
+        }
         Self { pool, name, admin }
     }
 
@@ -938,11 +959,14 @@ pub async fn seed_visitor(pool: &sqlx::PgPool, website_id: Uuid) -> (Uuid, Strin
     (id, token)
 }
 
-/// Seed one active delivery carrier owned by the company.
+/// Seed one active delivery carrier owned by the company. The carrier
+/// table is org-scoped substrate (ADR-0029): the probe binds the
+/// company id as the org unit — the composed shape's pairing — on the
+/// harness's composed-column stand-in.
 pub async fn seed_carrier(pool: &sqlx::PgPool, company_id: Uuid, name: &str) -> Uuid {
     let (id,): (Uuid,) = sqlx::query_as(
         r#"
-        INSERT INTO selling.delivery_carriers (company_id, name, active)
+        INSERT INTO selling.delivery_carriers (org_unit_id, name, active)
         VALUES ($1, $2, true)
         RETURNING id
         "#,

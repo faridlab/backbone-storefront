@@ -494,8 +494,8 @@ dependencies = [
 
 [[package]]
 name = "backbone-selling"
-version = "0.9.5"
-source = "git+https://github.com/faridlab/backbone-selling?tag=v0.9.5#6837ae89b4b3635fb9ef3ad2314d6a69f3bd28e0"
+version = "0.10.0"
+source = "git+https://github.com/faridlab/backbone-selling?tag=v0.10.0#290bd81978421da28a14c21e53d2a01124fc79df"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -528,7 +528,7 @@ dependencies = [
 
 [[package]]
 name = "backbone-storefront"
-version = "0.2.8"
+version = "0.2.10"
 dependencies = [
  "anyhow",
  "async-trait",

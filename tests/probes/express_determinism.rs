@@ -95,11 +95,13 @@ async fn parallel_expresses_double_click_safe_one_email() {
     assert_eq!(rows.len(), 1, "the map row is unique");
     let party_id = rows[0].0;
 
-    // ONE order, riding that exact party as its customer.
+    // ONE order, riding that exact party as its customer. The order
+    // table is org-scoped substrate (ADR-0029) with no company column;
+    // this disposable database holds only this probe's traffic, so the
+    // outright read is the company's.
     let (customer,): (Option<Uuid>,) = sqlx::query_as(
-        "SELECT customer_id FROM selling.sales_orders WHERE company_id = $1",
+        "SELECT customer_id FROM selling.sales_orders",
     )
-    .bind(company)
     .fetch_one(&pool)
     .await
     .unwrap();
@@ -180,10 +182,12 @@ async fn two_shoppers_one_email_resolve_one_party() {
     .unwrap();
     assert_eq!(rows.len(), 1, "one map row for one email");
     let party_id = rows[0].0;
+    // Same outright order read as the single-shopper probe above: the
+    // org-scoped order table keys on no company column, and this
+    // database holds only this probe's two placements.
     let customers: Vec<(Option<Uuid>,)> = sqlx::query_as(
-        "SELECT customer_id FROM selling.sales_orders WHERE company_id = $1",
+        "SELECT customer_id FROM selling.sales_orders",
     )
-    .bind(company)
     .fetch_all(&pool)
     .await
     .unwrap();

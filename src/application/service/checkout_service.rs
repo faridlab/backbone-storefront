@@ -194,24 +194,36 @@ async fn active_provider(
 
 /// The carrier-ownership check (the clean-404 posture, mirrored from
 /// selling's create-time validation): the carrier must be one of THIS
-/// company's live carriers.
+/// company's live carriers. The registry is org-scoped substrate
+/// (ADR-0029: selling's carrier table carries org_unit_id, never
+/// company_id), so the read rides the org-scoped lane — the
+/// request-dedicated connection of the caller's org request scope,
+/// never the checkout transaction's own connection, which carries no
+/// `app.scope_unit_ids` and would see zero carriers through the
+/// composing service's FORCE fence. [`org_scope::fetch_optional_row_scoped`]
+/// picks that connection when a scope is bound and the plain pool
+/// otherwise, so module-only scratch databases (no decorator, no
+/// fence) read identically. The company id IS the org-unit bind: the
+/// website pairing stores the company node's id in the org tree.
 pub async fn carrier_owned_by_company(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    pool: &sqlx::PgPool,
     company_id: Uuid,
     carrier_id: Uuid,
 ) -> Result<bool, StorefrontError> {
-    let row: Option<(i64,)> = sqlx::query_as(
-        r#"
-        SELECT 1::int8
-        FROM selling.delivery_carriers
-        WHERE id = $1 AND company_id = $2 AND active = true
-          AND (metadata->>'deleted_at') IS NULL
-        LIMIT 1
-        "#,
+    let row = org_scope::fetch_optional_row_scoped(
+        pool,
+        sqlx::query(
+            r#"
+            SELECT 1::int8
+            FROM selling.delivery_carriers
+            WHERE id = $1 AND org_unit_id = $2 AND active = true
+              AND (metadata->>'deleted_at') IS NULL
+            LIMIT 1
+            "#,
+        )
+        .bind(carrier_id)
+        .bind(company_id),
     )
-    .bind(carrier_id)
-    .bind(company_id)
-    .fetch_optional(exec)
     .await?;
     Ok(row.is_some())
 }
@@ -301,12 +313,21 @@ pub async fn set_delivery(
     if cart.state != "open" {
         return Err(StorefrontError::CartNotOpen { state: cart.state.clone() });
     }
-    // RLS scope (ADR-0008): the carrier-registry read below targets a
-    // FORCE-RLS selling table; the company predicate alone does not
-    // fence it — bind the company onto this transaction so the read
-    // resolves on the scoped session.
-    company_scope::bind_company_on(&mut tx, company_id).await?;
-    if !carrier_owned_by_company(&mut *tx, company_id, carrier_id).await? {
+    // The carrier-registry check rides the org-scoped lane (ADR-0029):
+    // selling's carrier table is org-fenced by the composing service,
+    // so the read must run on a request-dedicated connection carrying
+    // `app.scope_unit_ids` — a read on this locked transaction's own
+    // connection sees zero carriers and every delivery change would
+    // refuse as CarrierNotFound. The lock itself is unaffected: the
+    // scoped read is a single indexed lookup beside the held row lock.
+    let owned = org_scope::with_org_request_scope(
+        &deps.pool,
+        OrgScope::for_company_unit(company_id),
+        carrier_owned_by_company(&deps.pool, company_id, carrier_id),
+    )
+    .await
+    .map_err(StorefrontError::from)??;
+    if !owned {
         return Err(StorefrontError::CarrierNotFound);
     }
     sqlx::query(
@@ -594,11 +615,14 @@ async fn place_with_lane(
         (None, None)
     };
     // RLS scope (ADR-0008): bind the cart's company onto the locked
-    // transaction, so every cross-schema read executed ON this
-    // transaction (the carrier-registry check in the delivery verbs,
-    // the active-provider read below) is fenced to this company. The
-    // storefront's own tables are deliberately predicate-only (no RLS),
-    // so the bind costs them nothing and scopes only the fenced reads.
+    // transaction so the still-company-fenced cross-schema reads that
+    // execute ON this transaction (the party port's shopper resolution
+    // below) resolve fenced to this company. The org-stripped substrate
+    // reads (selling's mint/confirm legs, the gateway provider read)
+    // do NOT ride this transaction — they run inside the org request
+    // scope further down, on its dedicated connection. The storefront's
+    // own tables are deliberately predicate-only (no RLS), so the bind
+    // costs them nothing and scopes only the fenced reads.
     company_scope::bind_company_on(&mut tx, company_id).await?;
 
     // Express arm: deterministic billing capture INSIDE the same lock.
@@ -723,7 +747,6 @@ async fn place_with_lane(
                     // (set_delivery stamps it on the cart); the mint carries
                     // it onto the order so the fulfillment chain inherits it.
                     delivery_carrier_id: cart.delivery_carrier_id,
-                    company_id,
                     branch_id: None,
                     customer_id: party_id,
                     customer_group_id: priced.customer_group_id,
@@ -773,7 +796,6 @@ async fn place_with_lane(
             deps.selling
                 .confirm_sales_order(
                     order_id,
-                    company_id,
                     &NoUnitCostPort,
                     &NoStockFulfillmentPort,
                     &NoServiceCatalog,
@@ -959,7 +981,6 @@ pub async fn consume_settlement(
         deps.selling
             .confirm_sales_order(
                 order_id,
-                company_id,
                 &NoUnitCostPort,
                 &NoStockFulfillmentPort,
                 &NoServiceCatalog,
@@ -1042,7 +1063,7 @@ pub async fn cancel_checkout(
         OrgScope::for_company_unit(company_id),
         async {
         deps.selling
-            .cancel_sales_order(order_id, company_id, &NoStockFulfillmentPort)
+            .cancel_sales_order(order_id, &NoStockFulfillmentPort)
             .await
     })
     .await
@@ -1128,7 +1149,6 @@ pub async fn confirm_pickup(
         deps.selling
             .confirm_sales_order(
                 order_id,
-                company_id,
                 &NoUnitCostPort,
                 &NoStockFulfillmentPort,
                 &NoServiceCatalog,
@@ -1181,19 +1201,23 @@ pub async fn confirm_pickup(
 
 /// The checkout view's order-state read (read-only on the selling
 /// table — the logical-ref posture). `selling.sales_orders` is
-/// FORCE-RLS: the read rides the scoped fetch helper under the
-/// cart-company's task-local scope, so the public connection (which
-/// carries no company) still resolves the row; without it the
-/// decoration silently drops.
+/// org-fenced substrate (ADR-0029): the read rides the org-scoped lane
+/// — a request-dedicated connection carrying `app.scope_unit_ids`
+/// under the website's company node — never the plain pool connection,
+/// which carries no scope and would see no row through the composing
+/// service's FORCE fence. [`org_scope::fetch_optional_row_scoped`]
+/// falls back to the plain pool when no scope is bound, so
+/// module-only scratch databases (no decorator, no fence) read
+/// identically.
 pub async fn order_state_of(
     pool: &sqlx::PgPool,
     company_id: Uuid,
     order_id: Uuid,
 ) -> Result<Option<(String, rust_decimal::Decimal, String)>, StorefrontError> {
-    company_scope::with_company_scope(Some(company_id), async {
-        company_scope::fetch_optional_scoped::<(String, rust_decimal::Decimal, String)>(
+    org_scope::with_org_request_scope(pool, OrgScope::for_company_unit(company_id), async {
+        let row = org_scope::fetch_optional_row_scoped(
             pool,
-            sqlx::query_as::<_, (String, rust_decimal::Decimal, String)>(
+            sqlx::query(
                 r#"
                 SELECT status::text, total, currency
                 FROM selling.sales_orders
@@ -1203,10 +1227,18 @@ pub async fn order_state_of(
             )
             .bind(order_id),
         )
-        .await
-        .map_err(StorefrontError::from)
+        .await?;
+        match row {
+            Some(row) => Ok(Some((
+                row.try_get("status")?,
+                row.try_get("total")?,
+                row.try_get("currency")?,
+            ))),
+            None => Ok(None),
+        }
     })
     .await
+    .map_err(StorefrontError::from)?
 }
 
 /// The officer/support checkout read (§6.2): the company's checkout
