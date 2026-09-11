@@ -162,7 +162,7 @@ async fn active_provider(
         r#"
         SELECT id, code::text
         FROM payment_gateway.payment_gateway_providers
-        WHERE company_id = $1 AND status = 'active'
+        WHERE org_unit_id = $1 AND status = 'active'
           AND (metadata->>'deleted_at') IS NULL
         ORDER BY code ASC
         LIMIT 1

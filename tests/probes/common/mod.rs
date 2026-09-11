@@ -117,6 +117,22 @@ impl TestDb {
         if let Err(what) = apply_sibling_migrations(&pool, marker, extra_siblings).await {
             skipped(&what);
         }
+        // The gateway substrate is tenancy-stripped (ADR-0029): the
+        // composing service's decorator installs org_unit_id at
+        // composition time, never in the module — and module migrations
+        // alone leave the provider table with no tenancy key at all.
+        // This stand-in adds the composed shape the checkout lane reads
+        // (the provider lookup keys on org_unit_id). No guard, no
+        // fence: module probes assert behavior, not tenancy.
+        if let Err(e) = sqlx::query(
+            "ALTER TABLE payment_gateway.payment_gateway_providers \
+             ADD COLUMN IF NOT EXISTS org_unit_id uuid",
+        )
+        .execute(&pool)
+        .await
+        {
+            skipped(&format!("gateway org stand-in failed: {e}"));
+        }
         Self { pool, name, admin }
     }
 
@@ -944,7 +960,7 @@ pub async fn seed_provider(pool: &sqlx::PgPool, company_id: Uuid) -> Uuid {
     let (id,): (Uuid,) = sqlx::query_as(
         r#"
         INSERT INTO payment_gateway.payment_gateway_providers
-            (code, company_id, display_name)
+            (code, org_unit_id, display_name)
         VALUES ('manual', $1, 'probe manual')
         RETURNING id
         "#,
