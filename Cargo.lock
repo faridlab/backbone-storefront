@@ -359,8 +359,8 @@ dependencies = [
 
 [[package]]
 name = "backbone-payment-gateway"
-version = "0.3.6"
-source = "git+https://github.com/faridlab/backbone-payment-gateway?tag=v0.3.6#f9a7ff6c6473a250239b3fa9cbd7687cdb63b9e5"
+version = "0.4.0"
+source = "git+https://github.com/faridlab/backbone-payment-gateway?tag=v0.4.0#10678578cf17ca12dbd982557e8594e110604e80"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -528,7 +528,7 @@ dependencies = [
 
 [[package]]
 name = "backbone-storefront"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "anyhow",
  "async-trait",

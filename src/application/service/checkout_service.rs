@@ -45,6 +45,7 @@ use rust_decimal::Decimal;
 use uuid::Uuid;
 
 use backbone_orm::company_scope;
+use backbone_orm::org_scope::{self, OrgScope};
 use backbone_payment_gateway::application::service::GatewayTransactionSettled;
 use backbone_payment_gateway::presentation::dto::CreateGatewayTransactionDto;
 use backbone_payment_gateway::GatewayTransactionService;
@@ -674,7 +675,10 @@ async fn place_with_lane(
         order_id,
         amount_total,
         (state, gateway_transaction_id, provider_code, provider_reference),
-    ) = company_scope::with_request_scope(&deps.pool, company_id, async {
+    ) = org_scope::with_org_request_scope(
+        &deps.pool,
+        OrgScope::for_company_unit(company_id),
+        async {
         let checkout_id = Uuid::new_v4();
         let order_number = format!("STF-{checkout_id}");
         let order_lines: Vec<CartOrderLine> = priced
@@ -779,7 +783,6 @@ async fn place_with_lane(
                 .ok_or(StorefrontError::ProviderUnavailable)?;
             let reference = format!("stf-{checkout_id}");
             let dto = CreateGatewayTransactionDto {
-                company_id,
                 provider_id: provider.id,
                 provider_code: parse_provider_code(&provider.code),
                 provider_transaction_id: reference.clone(),
@@ -934,7 +937,10 @@ pub async fn consume_settlement(
     // RLS scope (ADR-0008): confirm's pre-reads touch FORCE-RLS selling
     // tables; the scoped helpers bind them to this company on a
     // request-dedicated connection (the webhook caller carries none).
-    let confirmed = company_scope::with_request_scope(&deps.pool, company_id, async {
+    let confirmed = org_scope::with_org_request_scope(
+        &deps.pool,
+        OrgScope::for_company_unit(company_id),
+        async {
         deps.selling
             .confirm_sales_order(
                 order_id,
@@ -1016,7 +1022,10 @@ pub async fn cancel_checkout(
     .await?;
     // RLS scope (ADR-0008): the cancel verb's pre-reads touch FORCE-RLS
     // selling tables — same scoped wrap as the settlement confirm.
-    company_scope::with_request_scope(&deps.pool, company_id, async {
+    org_scope::with_org_request_scope(
+        &deps.pool,
+        OrgScope::for_company_unit(company_id),
+        async {
         deps.selling
             .cancel_sales_order(order_id, company_id, &NoStockFulfillmentPort)
             .await
@@ -1097,7 +1106,10 @@ pub async fn confirm_pickup(
     .await?;
     // RLS scope (ADR-0008): the confirm's pre-reads touch FORCE-RLS
     // selling tables — same scoped wrap as the settlement confirm.
-    let confirmed = company_scope::with_request_scope(&deps.pool, company_id, async {
+    let confirmed = org_scope::with_org_request_scope(
+        &deps.pool,
+        OrgScope::for_company_unit(company_id),
+        async {
         deps.selling
             .confirm_sales_order(
                 order_id,
