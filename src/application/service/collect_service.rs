@@ -18,13 +18,14 @@
 //! The upsert carries three fences: the fiscal country is REQUIRED
 //! merchant-declared input (2-letter ISO, validated unconditionally —
 //! a countryless store has no defensible tax arm); the target website
-//! must be a live row (the write's company is the website's company);
-//! and a present warehouse pointer must be one of that company's live
-//! warehouses (a foreign-company warehouse is the typed refusal).
+//! must be a live row (the write's unit is the website's company,
+//! which anchors the org unit); and a present warehouse pointer must
+//! be one of that unit's live warehouses (a foreign-unit warehouse is
+//! the typed refusal).
 
 use uuid::Uuid;
 
-use backbone_orm::company_scope;
+use backbone_orm::org_scope::{self, OrgScope};
 
 use super::audit::{record_audit, ActorRef};
 use super::storefront_error::StorefrontError;
@@ -136,14 +137,14 @@ pub async fn active_location_on_website(
 ///    officer→company binding is the host's auth fence around the
 ///    admin tree, and this module enforces the referential half —
 ///    every fact on the row coheres with the target website's company.
-/// 2. **The warehouse, when present, must be one of that company's
+/// 2. **The warehouse, when present, must be one of that unit's
 ///    live warehouses** (the typed refusal covers a missing id and a
-///    foreign company's id alike — a store that fulfilled from another
-///    company's warehouse would promise stock it can never read).
-///    `inventory.warehouses` is company-RLS fenced, so the read runs
-///    inside the website's company scope; under the host's app role a
+///    foreign unit's id alike — a store that fulfilled from another
+///    unit's warehouse would promise stock it can never read).
+///    `inventory.warehouses` is org-fence RLS'd, so the read runs
+///    inside the website unit's org scope; under the host's app role a
 ///    foreign warehouse is invisible (the same refusal), and the
-///    explicit company comparison catches it even on scope-exempt
+///    explicit unit comparison catches it even on scope-exempt
 ///    connections.
 ///
 /// The fiscal country is REQUIRED merchant-declared input: a create
@@ -181,17 +182,19 @@ pub async fn upsert_location(
     .await?
     .map(|(company,)| company)
     .ok_or(StorefrontError::WebsiteNotFound)?;
-    // RLS scope (ADR-0008): the warehouse fence reads a FORCE-RLS
-    // inventory table; bind the website's company so the scoped read
-    // sees exactly this company's warehouses under the host's app role.
-    company_scope::bind_company_on(&mut tx, owner_company).await?;
+    // RLS scope: the warehouse fence reads a FORCE-RLS inventory table
+    // fenced on the org-unit axis; bind the website's company AS its
+    // org unit so the scoped read sees exactly that unit's warehouses
+    // under the host's app role (the bind also carries the legacy
+    // company twin, so it stays correct under either fence shape).
+    org_scope::bind_org_scope_on(&mut *tx, &OrgScope::for_company_unit(owner_company)).await?;
     // Fence 2: a present warehouse pointer must name one of the
-    // website company's live warehouses (missing = foreign = refused).
+    // website unit's live warehouses (missing = foreign = refused).
     let warehouse_id = patch.warehouse_id.flatten();
     if let Some(warehouse) = warehouse_id {
         let found: Option<(Uuid,)> = sqlx::query_as(
             r#"
-            SELECT company_id
+            SELECT org_unit_id
             FROM inventory.warehouses
             WHERE id = $1 AND (metadata->>'deleted_at') IS NULL
             LIMIT 1
@@ -201,7 +204,7 @@ pub async fn upsert_location(
         .fetch_optional(&mut *tx)
         .await?;
         match found {
-            Some((warehouse_company,)) if warehouse_company == owner_company => {}
+            Some((warehouse_unit,)) if warehouse_unit == owner_company => {}
             _ => return Err(StorefrontError::PickupWarehouseRefused),
         }
     }

@@ -154,6 +154,21 @@ impl TestDb {
                 skipped(&format!("selling org stand-in failed for {table}: {e}"));
             }
         }
+        // The inventory substrate is tenancy-stripped the same way
+        // (ADR-0029) and only booted when a probe asks for it: the
+        // collect registry's warehouse fence keys on org_unit_id, the
+        // column the composing service's decorator installs. Same
+        // stand-in shape — the probe binds its company id as the unit.
+        if extra_siblings.contains(&"backbone-inventory") {
+            if let Err(e) = sqlx::query(
+                "ALTER TABLE inventory.warehouses ADD COLUMN IF NOT EXISTS org_unit_id uuid",
+            )
+            .execute(&pool)
+            .await
+            {
+                skipped(&format!("inventory org stand-in failed: {e}"));
+            }
+        }
         Self { pool, name, admin }
     }
 
@@ -1049,7 +1064,9 @@ pub async fn seed_listing(
 
 /// Seed one live inventory warehouse owned by the company (the row the
 /// collect registry's warehouse fence validates against; requires the
-/// probe database booted with `TestDb::new_with_inventory`).
+/// probe database booted with `TestDb::new_with_inventory`). The unit
+/// bind rides the composed shape's org stand-in column: the probe's
+/// company id IS the org unit the fence compares against.
 pub async fn seed_warehouse(
     pool: &sqlx::PgPool,
     company_id: Uuid,
@@ -1057,7 +1074,7 @@ pub async fn seed_warehouse(
 ) -> Uuid {
     let (id,): (Uuid,) = sqlx::query_as(
         r#"
-        INSERT INTO inventory.warehouses (company_id, code, name)
+        INSERT INTO inventory.warehouses (org_unit_id, code, name)
         VALUES ($1, $2, $3)
         RETURNING id
         "#,
