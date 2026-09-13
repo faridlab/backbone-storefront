@@ -22,17 +22,16 @@ schema: storefront
 description: "storefront — the server-authoritative eCommerce core: carts as identity-bound drafts (partial-unique open-cart per visitor, explicit adoption through portal linkage, the sales order minted only at place), publish-gated product listings paired per website with per-website price rows, checkout under a cart row lock that closes the delivery-change window, the pending gateway transaction created inside that lock, settlement-to-confirm riding the gateway's existing seam, and abandoned carts as a derived read with an explicit recovery verb (Odoo website_sale port; rendering and the payment UX stay in the webapp)"
 
 # =============================================================================
-# company_fence (ADR-0014): multi-tenant row-level-security posture
+# Company fence: none by design (ADR-0014 posture 4; tenant-agnostic under
+# ADR-0029)
 # -----------------------------------------------------------------------------
-# Posture: none — the website module's posture 4. The upstream Odoo
-# website_sale addon ships no company ir.rules on its storefront rows;
-# multi-website scoping is the verb surface plus the identity binding.
-# Every table carries website_id; the company is DERIVED through
+# The upstream Odoo website_sale addon ships no company ir.rules on its
+# storefront rows; multi-website scoping is the verb surface plus the identity
+# binding. Every table carries website_id; the company is DERIVED through
 # website.websites.company_id (NOT NULL there) for officer scoping, and
-# selling's own company fence (ADR-0008) governs every order write the
-# place verb mints. No RLS policy is emitted for any storefront table.
+# selling's own org fence governs every order write the place verb mints.
+# No RLS policy is emitted for any storefront table.
 # -----------------------------------------------------------------------------
-company_fence: none
 
 config:
   database: postgresql

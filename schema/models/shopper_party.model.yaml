@@ -30,7 +30,7 @@ models:
       company_id:
         type: uuid
         attributes: ["@required", "@indexed", "@exclude_from_foreign_key_check", "@global"]
-        description: "The owning company (derived from the cart's website) — the map is per-company, never global. Marked @global and NOT a fence: the module declares company_fence: none (ADR-0014 posture 4 — visibility is the verb surface + the identity binding), and this column is the deterministic resolution KEY, not an RLS fence."
+        description: "The owning company (derived from the cart's website) — the map is per-company, never global. Marked @global and NOT a fence: the module ships no company fence (ADR-0014 posture 4 — visibility is the verb surface + the identity binding); this column is the deterministic resolution KEY, not an RLS fence."
       email_normalized:
         type: string
         attributes: ["@required", "@max(320)"]
