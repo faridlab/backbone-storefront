@@ -48,20 +48,34 @@ pub async fn record_audit(
     subject_id: Option<Uuid>,
     detail: Option<serde_json::Value>,
 ) -> Result<(), StorefrontError> {
-    sqlx::query(
-        r#"
-        INSERT INTO storefront.storefront_audit_log
-            (id, website_id, event, actor, subject_type, subject_id, detail, occurred_at)
-        VALUES (gen_random_uuid(), $1, $2::storefront_audit_event, $3, $4, $5, $6, now())
-        "#,
+    // Consolidated onto `auditlog.audit_trails`. `website_id` has no column
+    // there, so it folds into the diff payload rather than being dropped — it
+    // is the one piece of context this module's own table carried that the
+    // shared shape does not.
+    let changed = match (website_id, detail) {
+        (Some(w), Some(serde_json::Value::Object(mut o))) => {
+            o.insert("website_id".into(), serde_json::Value::String(w.to_string()));
+            Some(serde_json::Value::Object(o))
+        }
+        (Some(w), None) => Some(serde_json::json!({ "website_id": w.to_string() })),
+        (None, d) => d,
+        (Some(w), Some(d)) => Some(serde_json::json!({ "website_id": w.to_string(), "detail": d })),
+    };
+    backbone_auditlog::application::service::append(
+        exec,
+        backbone_auditlog::application::service::AuditEvent {
+            event_type: backbone_auditlog::domain::entity::AuditEventType::DataChange,
+            action: event.to_string(),
+            subject_type: subject_type.map(|s| {
+                if s.contains('.') { s.to_string() } else { format!("storefront.{s}") }
+            }),
+            subject_id: subject_id.map(|id| id.to_string()),
+            changed,
+            reason: None,
+            status: backbone_auditlog::domain::entity::AuditStatus::Success,
+            actor: actor.stamp().map(|id| id.to_string()),
+        },
     )
-    .bind(website_id)
-    .bind(event)
-    .bind(actor.stamp())
-    .bind(subject_type)
-    .bind(subject_id)
-    .bind(detail)
-    .execute(exec)
     .await?;
     Ok(())
 }

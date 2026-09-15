@@ -225,9 +225,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "backbone-auditlog"
+version = "0.1.10"
+source = "git+https://github.com/faridlab/backbone-auditlog?tag=v0.1.10#3cbe758ece75f401c94dfba7c6ae8846495435bd"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "axum",
+ "backbone-auth",
+ "backbone-core",
+ "backbone-messaging",
+ "backbone-orm",
+ "chrono",
+ "config",
+ "prost",
+ "prost-types",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sqlx",
+ "thiserror 1.0.69",
+ "tokio",
+ "tonic",
+ "tonic-build",
+ "tower 0.4.13",
+ "tower-http 0.5.2",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+ "validator",
+]
+
+[[package]]
 name = "backbone-auth"
 version = "2.0.0"
-source = "git+https://github.com/faridlab/backbone-framework?tag=v2.7.19#f9edb85b2ffdcc4de44b819d1ff35c47fb720e19"
+source = "git+https://github.com/faridlab/backbone-framework?tag=v2.7.23#3baf0772f2131f355104d45d740c748d8f6507ac"
 dependencies = [
  "anyhow",
  "argon2",
@@ -254,7 +287,7 @@ dependencies = [
 [[package]]
 name = "backbone-core"
 version = "2.0.0"
-source = "git+https://github.com/faridlab/backbone-framework?tag=v2.7.19#f9edb85b2ffdcc4de44b819d1ff35c47fb720e19"
+source = "git+https://github.com/faridlab/backbone-framework?tag=v2.7.23#3baf0772f2131f355104d45d740c748d8f6507ac"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -281,7 +314,7 @@ dependencies = [
 [[package]]
 name = "backbone-email"
 version = "2.0.0"
-source = "git+https://github.com/faridlab/backbone-framework?tag=v2.7.19#f9edb85b2ffdcc4de44b819d1ff35c47fb720e19"
+source = "git+https://github.com/faridlab/backbone-framework?tag=v2.7.23#3baf0772f2131f355104d45d740c748d8f6507ac"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -300,7 +333,7 @@ dependencies = [
 [[package]]
 name = "backbone-gl-posting"
 version = "0.1.0"
-source = "git+https://github.com/faridlab/backbone-framework?tag=v2.7.19#f9edb85b2ffdcc4de44b819d1ff35c47fb720e19"
+source = "git+https://github.com/faridlab/backbone-framework?tag=v2.7.23#3baf0772f2131f355104d45d740c748d8f6507ac"
 dependencies = [
  "async-trait",
  "chrono",
@@ -313,7 +346,7 @@ dependencies = [
 [[package]]
 name = "backbone-messaging"
 version = "2.0.0"
-source = "git+https://github.com/faridlab/backbone-framework?tag=v2.7.19#f9edb85b2ffdcc4de44b819d1ff35c47fb720e19"
+source = "git+https://github.com/faridlab/backbone-framework?tag=v2.7.23#3baf0772f2131f355104d45d740c748d8f6507ac"
 dependencies = [
  "async-trait",
  "chrono",
@@ -328,7 +361,7 @@ dependencies = [
 [[package]]
 name = "backbone-orm"
 version = "2.0.0"
-source = "git+https://github.com/faridlab/backbone-framework?tag=v2.7.19#f9edb85b2ffdcc4de44b819d1ff35c47fb720e19"
+source = "git+https://github.com/faridlab/backbone-framework?tag=v2.7.23#3baf0772f2131f355104d45d740c748d8f6507ac"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -347,7 +380,7 @@ dependencies = [
 [[package]]
 name = "backbone-outbox"
 version = "0.2.0"
-source = "git+https://github.com/faridlab/backbone-framework?tag=v2.7.19#f9edb85b2ffdcc4de44b819d1ff35c47fb720e19"
+source = "git+https://github.com/faridlab/backbone-framework?tag=v2.7.23#3baf0772f2131f355104d45d740c748d8f6507ac"
 dependencies = [
  "chrono",
  "serde",
@@ -359,8 +392,8 @@ dependencies = [
 
 [[package]]
 name = "backbone-payment-gateway"
-version = "0.4.1"
-source = "git+https://github.com/faridlab/backbone-payment-gateway?tag=v0.4.1#79ad5c597a9ab93186792e6184e414a7a65819b2"
+version = "0.4.6"
+source = "git+https://github.com/faridlab/backbone-payment-gateway?tag=v0.4.6#a9e7ff2061f1c43e3b0ac27a6c30b4f43f787443"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -395,8 +428,8 @@ dependencies = [
 
 [[package]]
 name = "backbone-portal"
-version = "0.2.5"
-source = "git+https://github.com/faridlab/backbone-portal?tag=v0.2.5#c9031782fa1ae1a6ffb5f299c5706279e6661579"
+version = "0.2.11"
+source = "git+https://github.com/faridlab/backbone-portal?tag=v0.2.11#30f0448a0d35c0e03df6465f183f07b831e8f3b5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -428,7 +461,7 @@ dependencies = [
 [[package]]
 name = "backbone-rate-limit"
 version = "2.0.0"
-source = "git+https://github.com/faridlab/backbone-framework?tag=v2.7.19#f9edb85b2ffdcc4de44b819d1ff35c47fb720e19"
+source = "git+https://github.com/faridlab/backbone-framework?tag=v2.7.23#3baf0772f2131f355104d45d740c748d8f6507ac"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -447,8 +480,8 @@ dependencies = [
 
 [[package]]
 name = "backbone-sapiens"
-version = "0.4.1"
-source = "git+https://github.com/faridlab/backbone-sapiens?tag=v0.4.1#843b2c8ca9e3844c4a267a887582e4220a880222"
+version = "0.4.7"
+source = "git+https://github.com/faridlab/backbone-sapiens?tag=v0.4.7#0e2d283003f524a09ec3ea6d2c3cefa1522feebb"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -494,8 +527,8 @@ dependencies = [
 
 [[package]]
 name = "backbone-selling"
-version = "0.11.1"
-source = "git+https://github.com/faridlab/backbone-selling?tag=v0.11.1#60ecbb07a505616899c623aeecbe11f864e4ccad"
+version = "0.13.4"
+source = "git+https://github.com/faridlab/backbone-selling?tag=v0.13.4#2cfe3ab1a0465d36fc5574f512de883d9cf12022"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -528,11 +561,12 @@ dependencies = [
 
 [[package]]
 name = "backbone-storefront"
-version = "0.2.15"
+version = "0.2.22"
 dependencies = [
  "anyhow",
  "async-trait",
  "axum",
+ "backbone-auditlog",
  "backbone-auth",
  "backbone-core",
  "backbone-messaging",
@@ -564,8 +598,8 @@ dependencies = [
 
 [[package]]
 name = "backbone-website"
-version = "0.3.6"
-source = "git+https://github.com/faridlab/backbone-website?tag=v0.3.6#dbd33bf5017dcaab76fb24c514772f923b2bbcf6"
+version = "0.3.12"
+source = "git+https://github.com/faridlab/backbone-website?tag=v0.3.12#bf6a81b560385f34cdf85f349f1d6e5bb3c3e629"
 dependencies = [
  "anyhow",
  "async-trait",
