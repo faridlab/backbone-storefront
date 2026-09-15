@@ -1,0 +1,7 @@
+-- SEED: none
+--
+-- A wishlist item is one shopper's saved product. It is created by shoppers at
+-- runtime and belongs to them; there is no global set of wishlist items.
+--
+-- The file exists so the table is not counted as an unwritten seed, and so the
+-- generated seeder has something to read.

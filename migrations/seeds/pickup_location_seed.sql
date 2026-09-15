@@ -1,0 +1,9 @@
+-- SEED: none
+--
+-- A pickup location is a physical place one company collects orders from — an
+-- address, opening hours, a branch it belongs to. That is per-installation
+-- operational data, not a global list every tenant shares, so there is nothing
+-- a seed run could put here that would be true for anyone.
+--
+-- The file exists so the table is not counted as an unwritten seed, and so the
+-- generated seeder has something to read.

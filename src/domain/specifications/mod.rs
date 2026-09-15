@@ -9,12 +9,13 @@ pub use backbone_core::{Specification, AndSpecification, OrSpecification, NotSpe
 pub mod cart_specification;
 pub mod cart_line_specification;
 pub mod checkout_session_specification;
+pub mod pickup_location_specification;
 pub mod product_listing_specification;
 pub mod product_price_specification;
 pub mod recovery_invite_specification;
 pub mod shopper_party_specification;
-pub mod storefront_audit_log_specification;
 pub mod website_sale_setting_specification;
+pub mod wishlist_item_specification;
 
 // <<< CUSTOM
 // END CUSTOM

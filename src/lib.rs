@@ -35,12 +35,13 @@ pub use infrastructure::persistence::*;
 pub use application::service::CartService;
 pub use application::service::CartLineService;
 pub use application::service::CheckoutSessionService;
+pub use application::service::PickupLocationService;
 pub use application::service::ProductListingService;
 pub use application::service::ProductPriceService;
 pub use application::service::RecoveryInviteService;
 pub use application::service::ShopperPartyService;
-pub use application::service::StorefrontAuditLogService;
 pub use application::service::WebsiteSaleSettingService;
+pub use application::service::WishlistItemService;
 
 use std::sync::Arc;
 use axum::Router;
@@ -62,12 +63,13 @@ pub struct StorefrontModule {
     pub(crate) cart_service: Arc<CartService>,
     pub(crate) cart_line_service: Arc<CartLineService>,
     pub(crate) checkout_session_service: Arc<CheckoutSessionService>,
+    pub(crate) pickup_location_service: Arc<PickupLocationService>,
     pub(crate) product_listing_service: Arc<ProductListingService>,
     pub(crate) product_price_service: Arc<ProductPriceService>,
     pub(crate) recovery_invite_service: Arc<RecoveryInviteService>,
     pub(crate) shopper_party_service: Arc<ShopperPartyService>,
-    pub(crate) storefront_audit_log_service: Arc<StorefrontAuditLogService>,
     pub(crate) website_sale_setting_service: Arc<WebsiteSaleSettingService>,
+    pub(crate) wishlist_item_service: Arc<WishlistItemService>,
     // <<< CUSTOM FIELDS
     // END CUSTOM
 }
@@ -88,24 +90,26 @@ impl StorefrontModule {
             create_cart_read_routes,
             create_cart_line_read_routes,
             create_checkout_session_read_routes,
+            create_pickup_location_read_routes,
             create_product_listing_read_routes,
             create_product_price_read_routes,
             create_recovery_invite_read_routes,
             create_shopper_party_read_routes,
-            create_storefront_audit_log_read_routes,
             create_website_sale_setting_read_routes,
+            create_wishlist_item_read_routes,
         };
 
         Router::new()
             .merge(create_cart_read_routes(self.cart_service.clone()))
             .merge(create_cart_line_read_routes(self.cart_line_service.clone()))
             .merge(create_checkout_session_read_routes(self.checkout_session_service.clone()))
+            .merge(create_pickup_location_read_routes(self.pickup_location_service.clone()))
             .merge(create_product_listing_read_routes(self.product_listing_service.clone()))
             .merge(create_product_price_read_routes(self.product_price_service.clone()))
             .merge(create_recovery_invite_read_routes(self.recovery_invite_service.clone()))
             .merge(create_shopper_party_read_routes(self.shopper_party_service.clone()))
-            .merge(create_storefront_audit_log_read_routes(self.storefront_audit_log_service.clone()))
             .merge(create_website_sale_setting_read_routes(self.website_sale_setting_service.clone()))
+            .merge(create_wishlist_item_read_routes(self.wishlist_item_service.clone()))
     }
 
     /// Deprecated alias for [`Self::all_crud_routes`]. `routes()` reads like
@@ -128,24 +132,26 @@ impl StorefrontModule {
             create_cart_read_routes,
             create_cart_line_read_routes,
             create_checkout_session_read_routes,
+            create_pickup_location_read_routes,
             create_product_listing_read_routes,
             create_product_price_read_routes,
             create_recovery_invite_read_routes,
             create_shopper_party_read_routes,
-            create_storefront_audit_log_read_routes,
             create_website_sale_setting_read_routes,
+            create_wishlist_item_read_routes,
         };
 
         Router::new()
             .merge(create_cart_read_routes(self.cart_service.clone()))
             .merge(create_cart_line_read_routes(self.cart_line_service.clone()))
             .merge(create_checkout_session_read_routes(self.checkout_session_service.clone()))
+            .merge(create_pickup_location_read_routes(self.pickup_location_service.clone()))
             .merge(create_product_listing_read_routes(self.product_listing_service.clone()))
             .merge(create_product_price_read_routes(self.product_price_service.clone()))
             .merge(create_recovery_invite_read_routes(self.recovery_invite_service.clone()))
             .merge(create_shopper_party_read_routes(self.shopper_party_service.clone()))
-            .merge(create_storefront_audit_log_read_routes(self.storefront_audit_log_service.clone()))
             .merge(create_website_sale_setting_read_routes(self.website_sale_setting_service.clone()))
+            .merge(create_wishlist_item_read_routes(self.wishlist_item_service.clone()))
     }
 
     // <<< CUSTOM METHODS
@@ -191,6 +197,10 @@ impl StorefrontModuleBuilder {
         let checkout_session_repository = Arc::new(CheckoutSessionRepository::new(db_pool.clone()));
         let checkout_session_service = Arc::new(CheckoutSessionService::with_repository(checkout_session_repository.clone()));
 
+        // PickupLocation service
+        let pickup_location_repository = Arc::new(PickupLocationRepository::new(db_pool.clone()));
+        let pickup_location_service = Arc::new(PickupLocationService::with_repository(pickup_location_repository.clone()));
+
         // ProductListing service
         let product_listing_repository = Arc::new(ProductListingRepository::new(db_pool.clone()));
         let product_listing_service = Arc::new(ProductListingService::with_repository(product_listing_repository.clone()));
@@ -207,13 +217,13 @@ impl StorefrontModuleBuilder {
         let shopper_party_repository = Arc::new(ShopperPartyRepository::new(db_pool.clone()));
         let shopper_party_service = Arc::new(ShopperPartyService::with_repository(shopper_party_repository.clone()));
 
-        // StorefrontAuditLog service
-        let storefront_audit_log_repository = Arc::new(StorefrontAuditLogRepository::new(db_pool.clone()));
-        let storefront_audit_log_service = Arc::new(StorefrontAuditLogService::with_repository(storefront_audit_log_repository.clone()));
-
         // WebsiteSaleSetting service
         let website_sale_setting_repository = Arc::new(WebsiteSaleSettingRepository::new(db_pool.clone()));
         let website_sale_setting_service = Arc::new(WebsiteSaleSettingService::with_repository(website_sale_setting_repository.clone()));
+
+        // WishlistItem service
+        let wishlist_item_repository = Arc::new(WishlistItemRepository::new(db_pool.clone()));
+        let wishlist_item_service = Arc::new(WishlistItemService::with_repository(wishlist_item_repository.clone()));
 
         // <<< CUSTOM
         // END CUSTOM
@@ -222,12 +232,13 @@ impl StorefrontModuleBuilder {
             cart_service,
             cart_line_service,
             checkout_session_service,
+            pickup_location_service,
             product_listing_service,
             product_price_service,
             recovery_invite_service,
             shopper_party_service,
-            storefront_audit_log_service,
             website_sale_setting_service,
+            wishlist_item_service,
             // <<< CUSTOM
             // END CUSTOM
         })

@@ -9,12 +9,13 @@
 pub mod cart_repository;
 pub mod cart_line_repository;
 pub mod checkout_session_repository;
+pub mod pickup_location_repository;
 pub mod product_listing_repository;
 pub mod product_price_repository;
 pub mod recovery_invite_repository;
 pub mod shopper_party_repository;
-pub mod storefront_audit_log_repository;
 pub mod website_sale_setting_repository;
+pub mod wishlist_item_repository;
 
 // Re-exports
 pub use cart_repository::{
@@ -34,6 +35,12 @@ pub use checkout_session_repository::{
     CheckoutSessionPaginationParams,
     CheckoutSessionPaginatedResult,
     CheckoutSessionFilter,
+};
+pub use pickup_location_repository::{
+    PickupLocationRepository,
+    PickupLocationPaginationParams,
+    PickupLocationPaginatedResult,
+    PickupLocationFilter,
 };
 pub use product_listing_repository::{
     ProductListingRepository,
@@ -59,15 +66,15 @@ pub use shopper_party_repository::{
     ShopperPartyPaginatedResult,
     ShopperPartyFilter,
 };
-pub use storefront_audit_log_repository::{
-    StorefrontAuditLogRepository,
-    StorefrontAuditLogPaginationParams,
-    StorefrontAuditLogPaginatedResult,
-    StorefrontAuditLogFilter,
-};
 pub use website_sale_setting_repository::{
     WebsiteSaleSettingRepository,
     WebsiteSaleSettingPaginationParams,
     WebsiteSaleSettingPaginatedResult,
     WebsiteSaleSettingFilter,
+};
+pub use wishlist_item_repository::{
+    WishlistItemRepository,
+    WishlistItemPaginationParams,
+    WishlistItemPaginatedResult,
+    WishlistItemFilter,
 };

@@ -12,12 +12,13 @@ use std::sync::Arc;
 use crate::application::service::CartService;
 use crate::application::service::CartLineService;
 use crate::application::service::CheckoutSessionService;
+use crate::application::service::PickupLocationService;
 use crate::application::service::ProductListingService;
 use crate::application::service::ProductPriceService;
 use crate::application::service::RecoveryInviteService;
 use crate::application::service::ShopperPartyService;
-use crate::application::service::StorefrontAuditLogService;
 use crate::application::service::WebsiteSaleSettingService;
+use crate::application::service::WishlistItemService;
 
 /// Application state for dependency injection.
 ///
@@ -43,6 +44,8 @@ pub struct AppState {
     pub cart_line_service: Arc<CartLineService>,
     /// CheckoutSession service
     pub checkout_session_service: Arc<CheckoutSessionService>,
+    /// PickupLocation service
+    pub pickup_location_service: Arc<PickupLocationService>,
     /// ProductListing service
     pub product_listing_service: Arc<ProductListingService>,
     /// ProductPrice service
@@ -51,10 +54,10 @@ pub struct AppState {
     pub recovery_invite_service: Arc<RecoveryInviteService>,
     /// ShopperParty service
     pub shopper_party_service: Arc<ShopperPartyService>,
-    /// StorefrontAuditLog service
-    pub storefront_audit_log_service: Arc<StorefrontAuditLogService>,
     /// WebsiteSaleSetting service
     pub website_sale_setting_service: Arc<WebsiteSaleSettingService>,
+    /// WishlistItem service
+    pub wishlist_item_service: Arc<WishlistItemService>,
 }
 
 impl AppState {
@@ -63,23 +66,25 @@ impl AppState {
         cart_service: Arc<CartService>,
         cart_line_service: Arc<CartLineService>,
         checkout_session_service: Arc<CheckoutSessionService>,
+        pickup_location_service: Arc<PickupLocationService>,
         product_listing_service: Arc<ProductListingService>,
         product_price_service: Arc<ProductPriceService>,
         recovery_invite_service: Arc<RecoveryInviteService>,
         shopper_party_service: Arc<ShopperPartyService>,
-        storefront_audit_log_service: Arc<StorefrontAuditLogService>,
-        website_sale_setting_service: Arc<WebsiteSaleSettingService>
+        website_sale_setting_service: Arc<WebsiteSaleSettingService>,
+        wishlist_item_service: Arc<WishlistItemService>
     ) -> Self {
         Self {
             cart_service,
             cart_line_service,
             checkout_session_service,
+            pickup_location_service,
             product_listing_service,
             product_price_service,
             recovery_invite_service,
             shopper_party_service,
-            storefront_audit_log_service,
             website_sale_setting_service,
+            wishlist_item_service,
         }
     }
 
@@ -89,12 +94,13 @@ impl AppState {
             cart_service: module.cart_service.clone(),
             cart_line_service: module.cart_line_service.clone(),
             checkout_session_service: module.checkout_session_service.clone(),
+            pickup_location_service: module.pickup_location_service.clone(),
             product_listing_service: module.product_listing_service.clone(),
             product_price_service: module.product_price_service.clone(),
             recovery_invite_service: module.recovery_invite_service.clone(),
             shopper_party_service: module.shopper_party_service.clone(),
-            storefront_audit_log_service: module.storefront_audit_log_service.clone(),
             website_sale_setting_service: module.website_sale_setting_service.clone(),
+            wishlist_item_service: module.wishlist_item_service.clone(),
         }
     }
 }
@@ -107,12 +113,13 @@ pub struct AppStateBuilder {
     cart_service: Option<Arc<CartService>>,
     cart_line_service: Option<Arc<CartLineService>>,
     checkout_session_service: Option<Arc<CheckoutSessionService>>,
+    pickup_location_service: Option<Arc<PickupLocationService>>,
     product_listing_service: Option<Arc<ProductListingService>>,
     product_price_service: Option<Arc<ProductPriceService>>,
     recovery_invite_service: Option<Arc<RecoveryInviteService>>,
     shopper_party_service: Option<Arc<ShopperPartyService>>,
-    storefront_audit_log_service: Option<Arc<StorefrontAuditLogService>>,
     website_sale_setting_service: Option<Arc<WebsiteSaleSettingService>>,
+    wishlist_item_service: Option<Arc<WishlistItemService>>,
 }
 
 impl AppStateBuilder {
@@ -136,6 +143,12 @@ impl AppStateBuilder {
     /// Set the CheckoutSession service.
     pub fn with_checkout_session_service(mut self, service: Arc<CheckoutSessionService>) -> Self {
         self.checkout_session_service = Some(service);
+        self
+    }
+
+    /// Set the PickupLocation service.
+    pub fn with_pickup_location_service(mut self, service: Arc<PickupLocationService>) -> Self {
+        self.pickup_location_service = Some(service);
         self
     }
 
@@ -163,15 +176,15 @@ impl AppStateBuilder {
         self
     }
 
-    /// Set the StorefrontAuditLog service.
-    pub fn with_storefront_audit_log_service(mut self, service: Arc<StorefrontAuditLogService>) -> Self {
-        self.storefront_audit_log_service = Some(service);
-        self
-    }
-
     /// Set the WebsiteSaleSetting service.
     pub fn with_website_sale_setting_service(mut self, service: Arc<WebsiteSaleSettingService>) -> Self {
         self.website_sale_setting_service = Some(service);
+        self
+    }
+
+    /// Set the WishlistItem service.
+    pub fn with_wishlist_item_service(mut self, service: Arc<WishlistItemService>) -> Self {
+        self.wishlist_item_service = Some(service);
         self
     }
 
@@ -185,12 +198,13 @@ impl AppStateBuilder {
             cart_service: self.cart_service.expect("cart_service is required"),
             cart_line_service: self.cart_line_service.expect("cart_line_service is required"),
             checkout_session_service: self.checkout_session_service.expect("checkout_session_service is required"),
+            pickup_location_service: self.pickup_location_service.expect("pickup_location_service is required"),
             product_listing_service: self.product_listing_service.expect("product_listing_service is required"),
             product_price_service: self.product_price_service.expect("product_price_service is required"),
             recovery_invite_service: self.recovery_invite_service.expect("recovery_invite_service is required"),
             shopper_party_service: self.shopper_party_service.expect("shopper_party_service is required"),
-            storefront_audit_log_service: self.storefront_audit_log_service.expect("storefront_audit_log_service is required"),
             website_sale_setting_service: self.website_sale_setting_service.expect("website_sale_setting_service is required"),
+            wishlist_item_service: self.wishlist_item_service.expect("wishlist_item_service is required"),
         }
     }
 }

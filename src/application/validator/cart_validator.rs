@@ -6,7 +6,7 @@
 //! field rules. Extend in the `// <<< CUSTOM` zone.
 
 use backbone_core::{EntityValidator, ValidationErrors, ValidationError};
-use backbone_core::{OptionalNotBlank};
+use backbone_core::{OptionalNotBlank, RequiredString};
 use crate::domain::entity::Cart;
 
 /// Validator type alias for Cart entities.
@@ -16,6 +16,7 @@ pub type CartValidator = EntityValidator<Cart>;
 pub fn cart_validator() -> CartValidator {
     EntityValidator::new()
         .rule(OptionalNotBlank::new("coupon_code", |e: &Cart| e.coupon_code.as_deref()))
+        .rule(RequiredString::new("fulfillment_mode", |e: &Cart| &e.fulfillment_mode))
     // <<< CUSTOM RULES
     // END CUSTOM RULES
 }

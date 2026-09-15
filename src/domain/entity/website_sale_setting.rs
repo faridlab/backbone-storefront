@@ -55,6 +55,7 @@ pub struct WebsiteSaleSetting {
     pub default_customer_group_id: Option<Uuid>,
     pub guest_party_id: Uuid,
     pub recovery_template_ref: Option<String>,
+    pub display_warehouse_id: Option<Uuid>,
     #[serde(default)]
     #[sqlx(json)]
     pub metadata: AuditMetadata,
@@ -75,6 +76,7 @@ impl WebsiteSaleSetting {
             default_customer_group_id: None,
             guest_party_id,
             recovery_template_ref: None,
+            display_warehouse_id: None,
             metadata: AuditMetadata::default(),
         }
     }
@@ -146,6 +148,12 @@ impl WebsiteSaleSetting {
         self
     }
 
+    /// Set the display_warehouse_id field (chainable)
+    pub fn with_display_warehouse_id(mut self, value: Uuid) -> Self {
+        self.display_warehouse_id = Some(value);
+        self
+    }
+
     // ==========================================================
     // Partial Update
     // ==========================================================
@@ -168,6 +176,9 @@ impl WebsiteSaleSetting {
                 }
                 "recovery_template_ref" => {
                     if let Ok(v) = serde_json::from_value(value) { self.recovery_template_ref = v; }
+                }
+                "display_warehouse_id" => {
+                    if let Ok(v) = serde_json::from_value(value) { self.display_warehouse_id = v; }
                 }
                 _ => {} // ignore unknown fields
             }
@@ -226,6 +237,7 @@ impl backbone_orm::EntityRepoMeta for WebsiteSaleSetting {
         m.insert("website_id".to_string(), "uuid".to_string());
         m.insert("default_customer_group_id".to_string(), "uuid".to_string());
         m.insert("guest_party_id".to_string(), "uuid".to_string());
+        m.insert("display_warehouse_id".to_string(), "uuid".to_string());
         m.insert("access_gate".to_string(), "storefront_access_gate".to_string());
         m
     }
@@ -245,6 +257,7 @@ pub struct WebsiteSaleSettingBuilder {
     default_customer_group_id: Option<Uuid>,
     guest_party_id: Option<Uuid>,
     recovery_template_ref: Option<String>,
+    display_warehouse_id: Option<Uuid>,
 }
 
 impl WebsiteSaleSettingBuilder {
@@ -278,6 +291,12 @@ impl WebsiteSaleSettingBuilder {
         self
     }
 
+    /// Set the display_warehouse_id field (optional)
+    pub fn display_warehouse_id(mut self, value: Uuid) -> Self {
+        self.display_warehouse_id = Some(value);
+        self
+    }
+
     /// Build the WebsiteSaleSetting entity
     ///
     /// Returns Err if any required field without a default is missing.
@@ -292,6 +311,7 @@ impl WebsiteSaleSettingBuilder {
             default_customer_group_id: self.default_customer_group_id,
             guest_party_id,
             recovery_template_ref: self.recovery_template_ref,
+            display_warehouse_id: self.display_warehouse_id,
             metadata: AuditMetadata::default(),
         })
     }

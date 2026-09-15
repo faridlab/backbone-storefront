@@ -49,12 +49,13 @@ pub struct WebsiteSaleSettingFilter {
     pub default_customer_group_id: Option<Uuid>,
     pub guest_party_id: Option<Uuid>,
     pub recovery_template_ref: Option<String>,
+    pub display_warehouse_id: Option<Uuid>,
 }
 
 impl WebsiteSaleSettingFilter {
     /// Check if any filter is set
     pub fn has_filters(&self) -> bool {
-        self.website_id.is_some() || self.access_gate.is_some() || self.default_customer_group_id.is_some() || self.guest_party_id.is_some() || self.recovery_template_ref.is_some()
+        self.website_id.is_some() || self.access_gate.is_some() || self.default_customer_group_id.is_some() || self.guest_party_id.is_some() || self.recovery_template_ref.is_some() || self.display_warehouse_id.is_some()
     }
 }
 

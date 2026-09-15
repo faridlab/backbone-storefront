@@ -8,12 +8,13 @@
 pub mod cart_dto;
 pub mod cart_line_dto;
 pub mod checkout_session_dto;
+pub mod pickup_location_dto;
 pub mod product_listing_dto;
 pub mod product_price_dto;
 pub mod recovery_invite_dto;
 pub mod shopper_party_dto;
-pub mod storefront_audit_log_dto;
 pub mod website_sale_setting_dto;
+pub mod wishlist_item_dto;
 
 // Re-exports
 pub use cart_dto::{
@@ -39,6 +40,14 @@ pub use checkout_session_dto::{
     CheckoutSessionResponseDto,
     CheckoutSessionListResponseDto,
     CheckoutSessionSummaryDto,
+};
+pub use pickup_location_dto::{
+    CreatePickupLocationDto,
+    UpdatePickupLocationDto,
+    PatchPickupLocationDto,
+    PickupLocationResponseDto,
+    PickupLocationListResponseDto,
+    PickupLocationSummaryDto,
 };
 pub use product_listing_dto::{
     CreateProductListingDto,
@@ -72,14 +81,6 @@ pub use shopper_party_dto::{
     ShopperPartyListResponseDto,
     ShopperPartySummaryDto,
 };
-pub use storefront_audit_log_dto::{
-    CreateStorefrontAuditLogDto,
-    UpdateStorefrontAuditLogDto,
-    PatchStorefrontAuditLogDto,
-    StorefrontAuditLogResponseDto,
-    StorefrontAuditLogListResponseDto,
-    StorefrontAuditLogSummaryDto,
-};
 pub use website_sale_setting_dto::{
     CreateWebsiteSaleSettingDto,
     UpdateWebsiteSaleSettingDto,
@@ -87,6 +88,14 @@ pub use website_sale_setting_dto::{
     WebsiteSaleSettingResponseDto,
     WebsiteSaleSettingListResponseDto,
     WebsiteSaleSettingSummaryDto,
+};
+pub use wishlist_item_dto::{
+    CreateWishlistItemDto,
+    UpdateWishlistItemDto,
+    PatchWishlistItemDto,
+    WishlistItemResponseDto,
+    WishlistItemListResponseDto,
+    WishlistItemSummaryDto,
 };
 
 // Common pagination types

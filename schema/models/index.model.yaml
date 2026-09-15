@@ -103,7 +103,7 @@ imports:
   - shopper_party.model.yaml         # ShopperParty
   - checkout_session.model.yaml      # CheckoutSession
   - recovery_invite.model.yaml       # RecoveryInvite
-  - storefront_audit_log.model.yaml  # StorefrontAuditLog
+  - storefront_vocabularies.model.yaml  # cart / checkout / access-gate enums
 
 # =============================================================================
 # BUILD-CONTRACT COVERAGE — the register rows this module owns

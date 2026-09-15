@@ -83,6 +83,20 @@ entities:
     pagination:
       default_limit: 20
       max_limit: 100
+  pickup_location:
+    collection: pickup_locations
+    enabled: true
+    cache_ttl: 300
+    pagination:
+      default_limit: 20
+      max_limit: 100
+  wishlist_item:
+    collection: wishlist_items
+    enabled: true
+    cache_ttl: 300
+    pagination:
+      default_limit: 20
+      max_limit: 100
 tracing:
   enabled: true
   exporter: otlp

@@ -49,6 +49,12 @@ pub struct CreateCartDto {
     pub coupon_code: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "delivery_carrier_id")]
     pub delivery_carrier_id: Option<Uuid>,
+    #[cfg_attr(feature = "validation", validate(length(max = 20)))]
+    #[cfg_attr(feature = "openapi", schema(example = "example"))]
+    #[serde(alias = "fulfillment_mode")]
+    pub fulfillment_mode: String,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "pickup_location_id")]
+    pub pickup_location_id: Option<Uuid>,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "placed_at")]
     pub placed_at: Option<DateTime<Utc>>,
 }
@@ -82,6 +88,12 @@ pub struct UpdateCartDto {
     pub coupon_code: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "delivery_carrier_id")]
     pub delivery_carrier_id: Option<Uuid>,
+    #[cfg_attr(feature = "validation", validate(length(max = 20)))]
+    #[cfg_attr(feature = "openapi", schema(example = "example"))]
+    #[serde(alias = "fulfillment_mode")]
+    pub fulfillment_mode: String,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "pickup_location_id")]
+    pub pickup_location_id: Option<Uuid>,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "placed_at")]
     pub placed_at: Option<DateTime<Utc>>,
 }
@@ -116,6 +128,12 @@ pub struct PatchCartDto {
     pub coupon_code: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", alias = "delivery_carrier_id")]
     pub delivery_carrier_id: Option<Uuid>,
+    #[cfg_attr(feature = "validation", validate(length(max = 20)))]
+    #[cfg_attr(feature = "openapi", schema(example = "example"))]
+    #[serde(skip_serializing_if = "Option::is_none", alias = "fulfillment_mode")]
+    pub fulfillment_mode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", alias = "pickup_location_id")]
+    pub pickup_location_id: Option<Uuid>,
     #[serde(skip_serializing_if = "Option::is_none", alias = "placed_at")]
     pub placed_at: Option<DateTime<Utc>>,
 }
@@ -123,7 +141,7 @@ pub struct PatchCartDto {
 impl PatchCartDto {
     /// Check if any field is set
     pub fn has_changes(&self) -> bool {
-        self.website_id.is_some() || self.visitor_id.is_some() || self.portal_user_id.is_some() || self.party_id.is_some() || self.state.is_some() || self.coupon_code.is_some() || self.delivery_carrier_id.is_some() || self.placed_at.is_some()
+        self.website_id.is_some() || self.visitor_id.is_some() || self.portal_user_id.is_some() || self.party_id.is_some() || self.state.is_some() || self.coupon_code.is_some() || self.delivery_carrier_id.is_some() || self.fulfillment_mode.is_some() || self.pickup_location_id.is_some() || self.placed_at.is_some()
     }
 }
 
@@ -150,6 +168,9 @@ pub struct CartResponseDto {
     pub state: StorefrontCartState,
     pub coupon_code: Option<String>,
     pub delivery_carrier_id: Option<Uuid>,
+    #[cfg_attr(feature = "openapi", schema(example = "example"))]
+    pub fulfillment_mode: String,
+    pub pickup_location_id: Option<Uuid>,
     pub placed_at: Option<DateTime<Utc>>,
     pub metadata: AuditMetadata,
 }
@@ -229,6 +250,8 @@ impl From<Cart> for CartResponseDto {
             state: entity.state,
             coupon_code: entity.coupon_code,
             delivery_carrier_id: entity.delivery_carrier_id,
+            fulfillment_mode: entity.fulfillment_mode,
+            pickup_location_id: entity.pickup_location_id,
             placed_at: entity.placed_at,
             metadata: entity.metadata,
         }
@@ -259,6 +282,8 @@ impl From<CreateCartDto> for Cart {
             state: dto.state,
             coupon_code: dto.coupon_code,
             delivery_carrier_id: dto.delivery_carrier_id,
+            fulfillment_mode: dto.fulfillment_mode,
+            pickup_location_id: dto.pickup_location_id,
             placed_at: dto.placed_at,
             metadata: AuditMetadata::default(),
         }
@@ -276,6 +301,8 @@ impl From<&Cart> for CartResponseDto {
             state: entity.state.clone(),
             coupon_code: entity.coupon_code.clone(),
             delivery_carrier_id: entity.delivery_carrier_id.clone(),
+            fulfillment_mode: entity.fulfillment_mode.clone(),
+            pickup_location_id: entity.pickup_location_id.clone(),
             placed_at: entity.placed_at.clone(),
             metadata: entity.metadata.clone(),
         }
@@ -297,6 +324,8 @@ impl backbone_core::ApplyUpdateDto<UpdateCartDto> for Cart {
         self.state = dto.state;
         self.coupon_code = dto.coupon_code;
         self.delivery_carrier_id = dto.delivery_carrier_id;
+        self.fulfillment_mode = dto.fulfillment_mode;
+        self.pickup_location_id = dto.pickup_location_id;
         self.placed_at = dto.placed_at;
         Ok(self)
     }

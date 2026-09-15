@@ -10,12 +10,13 @@ pub use error::{ServiceError, ServiceResult};
 pub mod cart_service;
 pub mod cart_line_service;
 pub mod checkout_session_service;
+pub mod pickup_location_service;
 pub mod product_listing_service;
 pub mod product_price_service;
 pub mod recovery_invite_service;
 pub mod shopper_party_service;
-pub mod storefront_audit_log_service;
 pub mod website_sale_setting_service;
+pub mod wishlist_item_service;
 
 // <<< CUSTOM
 pub mod audit;
@@ -37,12 +38,13 @@ pub mod wishlist_service;
 pub use cart_service::CartService;
 pub use cart_line_service::CartLineService;
 pub use checkout_session_service::CheckoutSessionService;
+pub use pickup_location_service::PickupLocationService;
 pub use product_listing_service::ProductListingService;
 pub use product_price_service::ProductPriceService;
 pub use recovery_invite_service::RecoveryInviteService;
 pub use shopper_party_service::ShopperPartyService;
-pub use storefront_audit_log_service::StorefrontAuditLogService;
 pub use website_sale_setting_service::WebsiteSaleSettingService;
+pub use wishlist_item_service::WishlistItemService;
 // <<< CUSTOM
 pub use audit::{record_audit, ActorRef};
 pub use availability_port::{

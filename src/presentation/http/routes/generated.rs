@@ -12,24 +12,26 @@ use super::{
     cart_handler::create_cart_read_routes,
     cart_line_handler::create_cart_line_read_routes,
     checkout_session_handler::create_checkout_session_read_routes,
+    pickup_location_handler::create_pickup_location_read_routes,
     product_listing_handler::create_product_listing_read_routes,
     product_price_handler::create_product_price_read_routes,
     recovery_invite_handler::create_recovery_invite_read_routes,
     shopper_party_handler::create_shopper_party_read_routes,
-    storefront_audit_log_handler::create_storefront_audit_log_read_routes,
     website_sale_setting_handler::create_website_sale_setting_read_routes,
+    wishlist_item_handler::create_wishlist_item_read_routes,
 };
 
 use crate::application::service::{
     CartService,
     CartLineService,
     CheckoutSessionService,
+    PickupLocationService,
     ProductListingService,
     ProductPriceService,
     RecoveryInviteService,
     ShopperPartyService,
-    StorefrontAuditLogService,
     WebsiteSaleSettingService,
+    WishlistItemService,
 };
 
 /// Services collection for all CRUD endpoints
@@ -37,12 +39,13 @@ pub struct HttpServices {
     pub cart: Arc<CartService>,
     pub cart_line: Arc<CartLineService>,
     pub checkout_session: Arc<CheckoutSessionService>,
+    pub pickup_location: Arc<PickupLocationService>,
     pub product_listing: Arc<ProductListingService>,
     pub product_price: Arc<ProductPriceService>,
     pub recovery_invite: Arc<RecoveryInviteService>,
     pub shopper_party: Arc<ShopperPartyService>,
-    pub storefront_audit_log: Arc<StorefrontAuditLogService>,
     pub website_sale_setting: Arc<WebsiteSaleSettingService>,
+    pub wishlist_item: Arc<WishlistItemService>,
 }
 
 /// Configure all HTTP routes for this module using Axum and BackboneCrudHandler.
@@ -68,6 +71,8 @@ pub fn configure_routes(services: HttpServices) -> Router {
         .merge(create_cart_line_read_routes(services.cart_line))
         // CheckoutSession routes (READ-ONLY — append-only/event-sourced entity; writes arrive via the event handlers)
         .merge(create_checkout_session_read_routes(services.checkout_session))
+        // PickupLocation routes (READ-ONLY — append-only/event-sourced entity; writes arrive via the event handlers)
+        .merge(create_pickup_location_read_routes(services.pickup_location))
         // ProductListing routes (READ-ONLY — append-only/event-sourced entity; writes arrive via the event handlers)
         .merge(create_product_listing_read_routes(services.product_listing))
         // ProductPrice routes (READ-ONLY — append-only/event-sourced entity; writes arrive via the event handlers)
@@ -76,10 +81,10 @@ pub fn configure_routes(services: HttpServices) -> Router {
         .merge(create_recovery_invite_read_routes(services.recovery_invite))
         // ShopperParty routes (READ-ONLY — append-only/event-sourced entity; writes arrive via the event handlers)
         .merge(create_shopper_party_read_routes(services.shopper_party))
-        // StorefrontAuditLog routes (READ-ONLY — append-only/event-sourced entity; writes arrive via the event handlers)
-        .merge(create_storefront_audit_log_read_routes(services.storefront_audit_log))
         // WebsiteSaleSetting routes (READ-ONLY — append-only/event-sourced entity; writes arrive via the event handlers)
         .merge(create_website_sale_setting_read_routes(services.website_sale_setting))
+        // WishlistItem routes (READ-ONLY — append-only/event-sourced entity; writes arrive via the event handlers)
+        .merge(create_wishlist_item_read_routes(services.wishlist_item))
 }
 
 /// Create an individual entity's routes (for modular configuration)
@@ -98,6 +103,10 @@ pub mod individual {
         create_checkout_session_routes(service)
     }
 
+    pub fn pickup_location_routes(service: Arc<PickupLocationService>) -> Router {
+        create_pickup_location_routes(service)
+    }
+
     pub fn product_listing_routes(service: Arc<ProductListingService>) -> Router {
         create_product_listing_routes(service)
     }
@@ -114,12 +123,12 @@ pub mod individual {
         create_shopper_party_routes(service)
     }
 
-    pub fn storefront_audit_log_routes(service: Arc<StorefrontAuditLogService>) -> Router {
-        create_storefront_audit_log_routes(service)
-    }
-
     pub fn website_sale_setting_routes(service: Arc<WebsiteSaleSettingService>) -> Router {
         create_website_sale_setting_routes(service)
+    }
+
+    pub fn wishlist_item_routes(service: Arc<WishlistItemService>) -> Router {
+        create_wishlist_item_routes(service)
     }
 
 }

@@ -92,6 +92,33 @@ pub struct CheckoutSessionDeletedEvent {
 }
 
 // ============================================================================
+// PICKUPLOCATION EVENTS
+// ============================================================================
+
+/// Event published when a PickupLocation is created
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PickupLocationCreatedEvent {
+    pub id: PickupLocationId,
+    pub data: PickupLocationDto,
+    pub occurred_at: DateTime<Utc>,
+}
+
+/// Event published when a PickupLocation is updated
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PickupLocationUpdatedEvent {
+    pub id: PickupLocationId,
+    pub data: PickupLocationDto,
+    pub occurred_at: DateTime<Utc>,
+}
+
+/// Event published when a PickupLocation is deleted
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PickupLocationDeletedEvent {
+    pub id: PickupLocationId,
+    pub occurred_at: DateTime<Utc>,
+}
+
+// ============================================================================
 // PRODUCTLISTING EVENTS
 // ============================================================================
 
@@ -200,33 +227,6 @@ pub struct ShopperPartyDeletedEvent {
 }
 
 // ============================================================================
-// STOREFRONTAUDITLOG EVENTS
-// ============================================================================
-
-/// Event published when a StorefrontAuditLog is created
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StorefrontAuditLogCreatedEvent {
-    pub id: StorefrontAuditLogId,
-    pub data: StorefrontAuditLogDto,
-    pub occurred_at: DateTime<Utc>,
-}
-
-/// Event published when a StorefrontAuditLog is updated
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StorefrontAuditLogUpdatedEvent {
-    pub id: StorefrontAuditLogId,
-    pub data: StorefrontAuditLogDto,
-    pub occurred_at: DateTime<Utc>,
-}
-
-/// Event published when a StorefrontAuditLog is deleted
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StorefrontAuditLogDeletedEvent {
-    pub id: StorefrontAuditLogId,
-    pub occurred_at: DateTime<Utc>,
-}
-
-// ============================================================================
 // WEBSITESALESETTING EVENTS
 // ============================================================================
 
@@ -254,6 +254,33 @@ pub struct WebsiteSaleSettingDeletedEvent {
 }
 
 // ============================================================================
+// WISHLISTITEM EVENTS
+// ============================================================================
+
+/// Event published when a WishlistItem is created
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WishlistItemCreatedEvent {
+    pub id: WishlistItemId,
+    pub data: WishlistItemDto,
+    pub occurred_at: DateTime<Utc>,
+}
+
+/// Event published when a WishlistItem is updated
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WishlistItemUpdatedEvent {
+    pub id: WishlistItemId,
+    pub data: WishlistItemDto,
+    pub occurred_at: DateTime<Utc>,
+}
+
+/// Event published when a WishlistItem is deleted
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WishlistItemDeletedEvent {
+    pub id: WishlistItemId,
+    pub occurred_at: DateTime<Utc>,
+}
+
+// ============================================================================
 // MODULE EVENT ENUM
 // ============================================================================
 
@@ -270,6 +297,9 @@ pub enum StorefrontEvent {
     CheckoutSessionCreated(CheckoutSessionCreatedEvent),
     CheckoutSessionUpdated(CheckoutSessionUpdatedEvent),
     CheckoutSessionDeleted(CheckoutSessionDeletedEvent),
+    PickupLocationCreated(PickupLocationCreatedEvent),
+    PickupLocationUpdated(PickupLocationUpdatedEvent),
+    PickupLocationDeleted(PickupLocationDeletedEvent),
     ProductListingCreated(ProductListingCreatedEvent),
     ProductListingUpdated(ProductListingUpdatedEvent),
     ProductListingDeleted(ProductListingDeletedEvent),
@@ -282,12 +312,12 @@ pub enum StorefrontEvent {
     ShopperPartyCreated(ShopperPartyCreatedEvent),
     ShopperPartyUpdated(ShopperPartyUpdatedEvent),
     ShopperPartyDeleted(ShopperPartyDeletedEvent),
-    StorefrontAuditLogCreated(StorefrontAuditLogCreatedEvent),
-    StorefrontAuditLogUpdated(StorefrontAuditLogUpdatedEvent),
-    StorefrontAuditLogDeleted(StorefrontAuditLogDeletedEvent),
     WebsiteSaleSettingCreated(WebsiteSaleSettingCreatedEvent),
     WebsiteSaleSettingUpdated(WebsiteSaleSettingUpdatedEvent),
     WebsiteSaleSettingDeleted(WebsiteSaleSettingDeletedEvent),
+    WishlistItemCreated(WishlistItemCreatedEvent),
+    WishlistItemUpdated(WishlistItemUpdatedEvent),
+    WishlistItemDeleted(WishlistItemDeletedEvent),
 }
 
 /// Metadata for module events

@@ -54,6 +54,7 @@ pub struct ProductListing {
     pub is_published: bool,
     pub sequence: i32,
     pub media_urls: serde_json::Value,
+    pub allow_backorder: bool,
     #[serde(default)]
     #[sqlx(json)]
     pub metadata: AuditMetadata,
@@ -66,7 +67,7 @@ impl ProductListing {
     }
 
     /// Create a new ProductListing with required fields
-    pub fn new(website_id: Uuid, item_id: Uuid, sale_ok: bool, is_published: bool, sequence: i32, media_urls: serde_json::Value) -> Self {
+    pub fn new(website_id: Uuid, item_id: Uuid, sale_ok: bool, is_published: bool, sequence: i32, media_urls: serde_json::Value, allow_backorder: bool) -> Self {
         Self {
             id: Uuid::new_v4(),
             website_id,
@@ -75,6 +76,7 @@ impl ProductListing {
             is_published,
             sequence,
             media_urls,
+            allow_backorder,
             metadata: AuditMetadata::default(),
         }
     }
@@ -156,6 +158,9 @@ impl ProductListing {
                 "media_urls" => {
                     if let Ok(v) = serde_json::from_value(value) { self.media_urls = v; }
                 }
+                "allow_backorder" => {
+                    if let Ok(v) = serde_json::from_value(value) { self.allow_backorder = v; }
+                }
                 _ => {} // ignore unknown fields
             }
         }
@@ -231,6 +236,7 @@ pub struct ProductListingBuilder {
     is_published: Option<bool>,
     sequence: Option<i32>,
     media_urls: Option<serde_json::Value>,
+    allow_backorder: Option<bool>,
 }
 
 impl ProductListingBuilder {
@@ -270,6 +276,12 @@ impl ProductListingBuilder {
         self
     }
 
+    /// Set the allow_backorder field (default: `false`)
+    pub fn allow_backorder(mut self, value: bool) -> Self {
+        self.allow_backorder = Some(value);
+        self
+    }
+
     /// Build the ProductListing entity
     ///
     /// Returns Err if any required field without a default is missing.
@@ -285,6 +297,7 @@ impl ProductListingBuilder {
             is_published: self.is_published.unwrap_or(false),
             sequence: self.sequence.unwrap_or(10),
             media_urls: self.media_urls.unwrap_or(serde_json::json!([])),
+            allow_backorder: self.allow_backorder.unwrap_or(false),
             metadata: AuditMetadata::default(),
         })
     }

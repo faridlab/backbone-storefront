@@ -48,12 +48,13 @@ pub struct ProductListingFilter {
     pub item_id: Option<Uuid>,
     pub sale_ok: Option<bool>,
     pub is_published: Option<bool>,
+    pub allow_backorder: Option<bool>,
 }
 
 impl ProductListingFilter {
     /// Check if any filter is set
     pub fn has_filters(&self) -> bool {
-        self.website_id.is_some() || self.item_id.is_some() || self.sale_ok.is_some() || self.is_published.is_some()
+        self.website_id.is_some() || self.item_id.is_some() || self.sale_ok.is_some() || self.is_published.is_some() || self.allow_backorder.is_some()
     }
 }
 

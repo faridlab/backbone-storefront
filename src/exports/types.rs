@@ -56,6 +56,8 @@ pub struct CartDto {
     pub state: StorefrontCartState,
     pub coupon_code: Option<String>,
     pub delivery_carrier_id: Option<Uuid>,
+    pub fulfillment_mode: String,
+    pub pickup_location_id: Option<Uuid>,
     pub placed_at: Option<DateTime<Utc>>,
     pub metadata: serde_json::Value,
 }
@@ -173,6 +175,7 @@ pub struct CheckoutSessionDto {
     pub provider_code: Option<String>,
     pub provider_reference: Option<String>,
     pub amount_total: Decimal,
+    pub pickup_location_id: Option<Uuid>,
     pub state: StorefrontCheckoutState,
     pub placed_at: Option<DateTime<Utc>>,
     pub settled_at: Option<DateTime<Utc>>,
@@ -189,6 +192,71 @@ pub struct CheckoutSessionSummary {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CheckoutSessionRef {
     pub id: CheckoutSessionId,
+}
+
+// ============================================================================
+// PICKUPLOCATION TYPES
+// ============================================================================
+
+/// Type-safe ID for PickupLocation
+///
+/// Use this instead of raw Uuid for type safety across modules.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct PickupLocationId(pub Uuid);
+
+impl PickupLocationId {
+    pub fn new(id: Uuid) -> Self {
+        Self(id)
+    }
+
+    pub fn into_inner(self) -> Uuid {
+        self.0
+    }
+}
+
+impl From<Uuid> for PickupLocationId {
+    fn from(id: Uuid) -> Self {
+        Self(id)
+    }
+}
+
+impl From<PickupLocationId> for Uuid {
+    fn from(id: PickupLocationId) -> Self {
+        id.0
+    }
+}
+
+/// Data transfer object for PickupLocation
+///
+/// This is the public representation of PickupLocation for other modules.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PickupLocationDto {
+    pub id: PickupLocationId,
+    pub website_id: Uuid,
+    pub warehouse_id: Option<Uuid>,
+    pub name: String,
+    pub address_line1: Option<String>,
+    pub city: Option<String>,
+    pub postal_code: Option<String>,
+    pub country: String,
+    pub latitude: Option<Decimal>,
+    pub longitude: Option<Decimal>,
+    pub opening_hours: Option<serde_json::Value>,
+    pub is_active: bool,
+    pub metadata: serde_json::Value,
+}
+
+/// Summary view of PickupLocation for list displays
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PickupLocationSummary {
+    pub id: PickupLocationId,
+    pub name: String,
+}
+
+/// Reference to PickupLocation for foreign key relationships
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PickupLocationRef {
+    pub id: PickupLocationId,
 }
 
 // ============================================================================
@@ -235,6 +303,7 @@ pub struct ProductListingDto {
     pub is_published: bool,
     pub sequence: i32,
     pub media_urls: serde_json::Value,
+    pub allow_backorder: bool,
     pub metadata: serde_json::Value,
 }
 
@@ -422,65 +491,6 @@ pub struct ShopperPartyRef {
 }
 
 // ============================================================================
-// STOREFRONTAUDITLOG TYPES
-// ============================================================================
-
-/// Type-safe ID for StorefrontAuditLog
-///
-/// Use this instead of raw Uuid for type safety across modules.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct StorefrontAuditLogId(pub Uuid);
-
-impl StorefrontAuditLogId {
-    pub fn new(id: Uuid) -> Self {
-        Self(id)
-    }
-
-    pub fn into_inner(self) -> Uuid {
-        self.0
-    }
-}
-
-impl From<Uuid> for StorefrontAuditLogId {
-    fn from(id: Uuid) -> Self {
-        Self(id)
-    }
-}
-
-impl From<StorefrontAuditLogId> for Uuid {
-    fn from(id: StorefrontAuditLogId) -> Self {
-        id.0
-    }
-}
-
-/// Data transfer object for StorefrontAuditLog
-///
-/// This is the public representation of StorefrontAuditLog for other modules.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StorefrontAuditLogDto {
-    pub id: StorefrontAuditLogId,
-    pub website_id: Option<Uuid>,
-    pub event: StorefrontAuditEvent,
-    pub actor: Option<Uuid>,
-    pub subject_type: Option<String>,
-    pub subject_id: Option<Uuid>,
-    pub detail: Option<serde_json::Value>,
-    pub occurred_at: DateTime<Utc>,
-}
-
-/// Summary view of StorefrontAuditLog for list displays
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StorefrontAuditLogSummary {
-    pub id: StorefrontAuditLogId,
-}
-
-/// Reference to StorefrontAuditLog for foreign key relationships
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StorefrontAuditLogRef {
-    pub id: StorefrontAuditLogId,
-}
-
-// ============================================================================
 // WEBSITESALESETTING TYPES
 // ============================================================================
 
@@ -523,6 +533,7 @@ pub struct WebsiteSaleSettingDto {
     pub default_customer_group_id: Option<Uuid>,
     pub guest_party_id: Uuid,
     pub recovery_template_ref: Option<String>,
+    pub display_warehouse_id: Option<Uuid>,
     pub metadata: serde_json::Value,
 }
 
@@ -536,6 +547,65 @@ pub struct WebsiteSaleSettingSummary {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebsiteSaleSettingRef {
     pub id: WebsiteSaleSettingId,
+}
+
+// ============================================================================
+// WISHLISTITEM TYPES
+// ============================================================================
+
+/// Type-safe ID for WishlistItem
+///
+/// Use this instead of raw Uuid for type safety across modules.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct WishlistItemId(pub Uuid);
+
+impl WishlistItemId {
+    pub fn new(id: Uuid) -> Self {
+        Self(id)
+    }
+
+    pub fn into_inner(self) -> Uuid {
+        self.0
+    }
+}
+
+impl From<Uuid> for WishlistItemId {
+    fn from(id: Uuid) -> Self {
+        Self(id)
+    }
+}
+
+impl From<WishlistItemId> for Uuid {
+    fn from(id: WishlistItemId) -> Self {
+        id.0
+    }
+}
+
+/// Data transfer object for WishlistItem
+///
+/// This is the public representation of WishlistItem for other modules.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WishlistItemDto {
+    pub id: WishlistItemId,
+    pub website_id: Uuid,
+    pub visitor_id: Uuid,
+    pub portal_user_id: Option<Uuid>,
+    pub item_id: Uuid,
+    pub notify_on_stock: bool,
+    pub contact_email: Option<String>,
+    pub metadata: serde_json::Value,
+}
+
+/// Summary view of WishlistItem for list displays
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WishlistItemSummary {
+    pub id: WishlistItemId,
+}
+
+/// Reference to WishlistItem for foreign key relationships
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WishlistItemRef {
+    pub id: WishlistItemId,
 }
 
 // ============================================================================

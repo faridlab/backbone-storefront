@@ -7,12 +7,13 @@
 mod cart_repository;
 mod cart_line_repository;
 mod checkout_session_repository;
+mod pickup_location_repository;
 mod product_listing_repository;
 mod product_price_repository;
 mod recovery_invite_repository;
 mod shopper_party_repository;
-mod storefront_audit_log_repository;
 mod website_sale_setting_repository;
+mod wishlist_item_repository;
 
 // Custom persistence modules
 // <<< CUSTOM
@@ -22,12 +23,13 @@ mod website_sale_setting_repository;
 pub use cart_repository::CartRepository;
 pub use cart_line_repository::CartLineRepository;
 pub use checkout_session_repository::CheckoutSessionRepository;
+pub use pickup_location_repository::PickupLocationRepository;
 pub use product_listing_repository::ProductListingRepository;
 pub use product_price_repository::ProductPriceRepository;
 pub use recovery_invite_repository::RecoveryInviteRepository;
 pub use shopper_party_repository::ShopperPartyRepository;
-pub use storefront_audit_log_repository::StorefrontAuditLogRepository;
 pub use website_sale_setting_repository::WebsiteSaleSettingRepository;
+pub use wishlist_item_repository::WishlistItemRepository;
 
 // Re-export backbone-orm types
 pub use backbone_orm::repository::{

@@ -46,6 +46,8 @@ pub struct CreateWebsiteSaleSettingDto {
     #[cfg_attr(feature = "validation", validate(length(max = 200)))]
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "recovery_template_ref")]
     pub recovery_template_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "display_warehouse_id")]
+    pub display_warehouse_id: Option<Uuid>,
 }
 
 // =============================================================================
@@ -74,6 +76,8 @@ pub struct UpdateWebsiteSaleSettingDto {
     #[cfg_attr(feature = "validation", validate(length(max = 200)))]
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "recovery_template_ref")]
     pub recovery_template_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "display_warehouse_id")]
+    pub display_warehouse_id: Option<Uuid>,
 }
 
 // =============================================================================
@@ -102,12 +106,14 @@ pub struct PatchWebsiteSaleSettingDto {
     #[cfg_attr(feature = "validation", validate(length(max = 200)))]
     #[serde(skip_serializing_if = "Option::is_none", alias = "recovery_template_ref")]
     pub recovery_template_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", alias = "display_warehouse_id")]
+    pub display_warehouse_id: Option<Uuid>,
 }
 
 impl PatchWebsiteSaleSettingDto {
     /// Check if any field is set
     pub fn has_changes(&self) -> bool {
-        self.website_id.is_some() || self.access_gate.is_some() || self.default_customer_group_id.is_some() || self.guest_party_id.is_some() || self.recovery_template_ref.is_some()
+        self.website_id.is_some() || self.access_gate.is_some() || self.default_customer_group_id.is_some() || self.guest_party_id.is_some() || self.recovery_template_ref.is_some() || self.display_warehouse_id.is_some()
     }
 }
 
@@ -132,6 +138,7 @@ pub struct WebsiteSaleSettingResponseDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     pub guest_party_id: Uuid,
     pub recovery_template_ref: Option<String>,
+    pub display_warehouse_id: Option<Uuid>,
     pub metadata: AuditMetadata,
 }
 
@@ -208,6 +215,7 @@ impl From<WebsiteSaleSetting> for WebsiteSaleSettingResponseDto {
             default_customer_group_id: entity.default_customer_group_id,
             guest_party_id: entity.guest_party_id,
             recovery_template_ref: entity.recovery_template_ref,
+            display_warehouse_id: entity.display_warehouse_id,
             metadata: entity.metadata,
         }
     }
@@ -235,6 +243,7 @@ impl From<CreateWebsiteSaleSettingDto> for WebsiteSaleSetting {
             default_customer_group_id: dto.default_customer_group_id,
             guest_party_id: dto.guest_party_id,
             recovery_template_ref: dto.recovery_template_ref,
+            display_warehouse_id: dto.display_warehouse_id,
             metadata: AuditMetadata::default(),
         }
     }
@@ -249,6 +258,7 @@ impl From<&WebsiteSaleSetting> for WebsiteSaleSettingResponseDto {
             default_customer_group_id: entity.default_customer_group_id.clone(),
             guest_party_id: entity.guest_party_id.clone(),
             recovery_template_ref: entity.recovery_template_ref.clone(),
+            display_warehouse_id: entity.display_warehouse_id.clone(),
             metadata: entity.metadata.clone(),
         }
     }
@@ -267,6 +277,7 @@ impl backbone_core::ApplyUpdateDto<UpdateWebsiteSaleSettingDto> for WebsiteSaleS
         self.default_customer_group_id = dto.default_customer_group_id;
         self.guest_party_id = dto.guest_party_id;
         self.recovery_template_ref = dto.recovery_template_ref;
+        self.display_warehouse_id = dto.display_warehouse_id;
         Ok(self)
     }
 }

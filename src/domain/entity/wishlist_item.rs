@@ -2,89 +2,79 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
-
-use super::StorefrontCartState;
 use super::AuditMetadata;
 
-/// Strongly-typed ID for Cart
+/// Strongly-typed ID for WishlistItem
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct CartId(pub Uuid);
+pub struct WishlistItemId(pub Uuid);
 
-impl CartId {
+impl WishlistItemId {
     pub fn new(id: Uuid) -> Self { Self(id) }
     pub fn generate() -> Self { Self(Uuid::new_v4()) }
     pub fn into_inner(self) -> Uuid { self.0 }
 }
 
-impl std::fmt::Display for CartId {
+impl std::fmt::Display for WishlistItemId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
-impl std::str::FromStr for CartId {
+impl std::str::FromStr for WishlistItemId {
     type Err = uuid::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(Self(Uuid::parse_str(s)?))
     }
 }
 
-impl From<Uuid> for CartId {
+impl From<Uuid> for WishlistItemId {
     fn from(id: Uuid) -> Self { Self(id) }
 }
 
-impl From<CartId> for Uuid {
-    fn from(id: CartId) -> Self { id.0 }
+impl From<WishlistItemId> for Uuid {
+    fn from(id: WishlistItemId) -> Self { id.0 }
 }
 
-impl AsRef<Uuid> for CartId {
+impl AsRef<Uuid> for WishlistItemId {
     fn as_ref(&self) -> &Uuid { &self.0 }
 }
 
-impl std::ops::Deref for CartId {
+impl std::ops::Deref for WishlistItemId {
     type Target = Uuid;
     fn deref(&self) -> &Self::Target { &self.0 }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct Cart {
+pub struct WishlistItem {
     pub id: Uuid,
     pub website_id: Uuid,
     pub visitor_id: Uuid,
     pub portal_user_id: Option<Uuid>,
-    pub party_id: Option<Uuid>,
-    pub state: StorefrontCartState,
-    pub coupon_code: Option<String>,
-    pub delivery_carrier_id: Option<Uuid>,
-    pub fulfillment_mode: String,
-    pub pickup_location_id: Option<Uuid>,
-    pub placed_at: Option<DateTime<Utc>>,
+    pub item_id: Uuid,
+    pub notify_on_stock: bool,
+    pub contact_email: Option<String>,
     #[serde(default)]
     #[sqlx(json)]
     pub metadata: AuditMetadata,
 }
 
-impl Cart {
-    /// Create a builder for Cart
-    pub fn builder() -> CartBuilder {
-        <CartBuilder as Default>::default()
+impl WishlistItem {
+    /// Create a builder for WishlistItem
+    pub fn builder() -> WishlistItemBuilder {
+        <WishlistItemBuilder as Default>::default()
     }
 
-    /// Create a new Cart with required fields
-    pub fn new(website_id: Uuid, visitor_id: Uuid, state: StorefrontCartState, fulfillment_mode: String) -> Self {
+    /// Create a new WishlistItem with required fields
+    pub fn new(website_id: Uuid, visitor_id: Uuid, item_id: Uuid, notify_on_stock: bool) -> Self {
         Self {
             id: Uuid::new_v4(),
             website_id,
             visitor_id,
             portal_user_id: None,
-            party_id: None,
-            state,
-            coupon_code: None,
-            delivery_carrier_id: None,
-            fulfillment_mode,
-            pickup_location_id: None,
-            placed_at: None,
+            item_id,
+            notify_on_stock,
+            contact_email: None,
             metadata: AuditMetadata::default(),
         }
     }
@@ -95,8 +85,8 @@ impl Cart {
     }
 
     /// Get a strongly-typed ID for this entity
-    pub fn typed_id(&self) -> CartId {
-        CartId(self.id)
+    pub fn typed_id(&self) -> WishlistItemId {
+        WishlistItemId(self.id)
     }
 
     /// Get when this entity was created
@@ -150,33 +140,9 @@ impl Cart {
         self
     }
 
-    /// Set the party_id field (chainable)
-    pub fn with_party_id(mut self, value: Uuid) -> Self {
-        self.party_id = Some(value);
-        self
-    }
-
-    /// Set the coupon_code field (chainable)
-    pub fn with_coupon_code(mut self, value: String) -> Self {
-        self.coupon_code = Some(value);
-        self
-    }
-
-    /// Set the delivery_carrier_id field (chainable)
-    pub fn with_delivery_carrier_id(mut self, value: Uuid) -> Self {
-        self.delivery_carrier_id = Some(value);
-        self
-    }
-
-    /// Set the pickup_location_id field (chainable)
-    pub fn with_pickup_location_id(mut self, value: Uuid) -> Self {
-        self.pickup_location_id = Some(value);
-        self
-    }
-
-    /// Set the placed_at field (chainable)
-    pub fn with_placed_at(mut self, value: DateTime<Utc>) -> Self {
-        self.placed_at = Some(value);
+    /// Set the contact_email field (chainable)
+    pub fn with_contact_email(mut self, value: String) -> Self {
+        self.contact_email = Some(value);
         self
     }
 
@@ -197,26 +163,14 @@ impl Cart {
                 "portal_user_id" => {
                     if let Ok(v) = serde_json::from_value(value) { self.portal_user_id = v; }
                 }
-                "party_id" => {
-                    if let Ok(v) = serde_json::from_value(value) { self.party_id = v; }
+                "item_id" => {
+                    if let Ok(v) = serde_json::from_value(value) { self.item_id = v; }
                 }
-                "state" => {
-                    if let Ok(v) = serde_json::from_value(value) { self.state = v; }
+                "notify_on_stock" => {
+                    if let Ok(v) = serde_json::from_value(value) { self.notify_on_stock = v; }
                 }
-                "coupon_code" => {
-                    if let Ok(v) = serde_json::from_value(value) { self.coupon_code = v; }
-                }
-                "delivery_carrier_id" => {
-                    if let Ok(v) = serde_json::from_value(value) { self.delivery_carrier_id = v; }
-                }
-                "fulfillment_mode" => {
-                    if let Ok(v) = serde_json::from_value(value) { self.fulfillment_mode = v; }
-                }
-                "pickup_location_id" => {
-                    if let Ok(v) = serde_json::from_value(value) { self.pickup_location_id = v; }
-                }
-                "placed_at" => {
-                    if let Ok(v) = serde_json::from_value(value) { self.placed_at = v; }
+                "contact_email" => {
+                    if let Ok(v) = serde_json::from_value(value) { self.contact_email = v; }
                 }
                 _ => {} // ignore unknown fields
             }
@@ -227,7 +181,7 @@ impl Cart {
     // <<< CUSTOM METHODS END >>>
 }
 
-impl super::Entity for Cart {
+impl super::Entity for WishlistItem {
     type Id = Uuid;
 
     fn entity_id(&self) -> &Self::Id {
@@ -235,11 +189,11 @@ impl super::Entity for Cart {
     }
 
     fn entity_type() -> &'static str {
-        "Cart"
+        "WishlistItem"
     }
 }
 
-impl backbone_core::PersistentEntity for Cart {
+impl backbone_core::PersistentEntity for WishlistItem {
     fn entity_id(&self) -> String {
         self.id.to_string()
     }
@@ -268,43 +222,36 @@ impl backbone_core::PersistentEntity for Cart {
     }
 }
 
-impl backbone_orm::EntityRepoMeta for Cart {
+impl backbone_orm::EntityRepoMeta for WishlistItem {
     fn column_types() -> std::collections::HashMap<String, String> {
         let mut m = std::collections::HashMap::new();
         m.insert("id".to_string(), "uuid".to_string());
         m.insert("website_id".to_string(), "uuid".to_string());
         m.insert("visitor_id".to_string(), "uuid".to_string());
         m.insert("portal_user_id".to_string(), "uuid".to_string());
-        m.insert("party_id".to_string(), "uuid".to_string());
-        m.insert("delivery_carrier_id".to_string(), "uuid".to_string());
-        m.insert("pickup_location_id".to_string(), "uuid".to_string());
-        m.insert("state".to_string(), "storefront_cart_state".to_string());
+        m.insert("item_id".to_string(), "uuid".to_string());
         m
     }
     fn search_fields() -> &'static [&'static str] {
-        &["fulfillment_mode"]
+        &[]
     }
 }
 
-/// Builder for Cart entity
+/// Builder for WishlistItem entity
 ///
-/// Provides a fluent API for constructing Cart instances.
+/// Provides a fluent API for constructing WishlistItem instances.
 /// System fields (id, metadata, timestamps) are auto-initialized.
 #[derive(Debug, Clone, Default)]
-pub struct CartBuilder {
+pub struct WishlistItemBuilder {
     website_id: Option<Uuid>,
     visitor_id: Option<Uuid>,
     portal_user_id: Option<Uuid>,
-    party_id: Option<Uuid>,
-    state: Option<StorefrontCartState>,
-    coupon_code: Option<String>,
-    delivery_carrier_id: Option<Uuid>,
-    fulfillment_mode: Option<String>,
-    pickup_location_id: Option<Uuid>,
-    placed_at: Option<DateTime<Utc>>,
+    item_id: Option<Uuid>,
+    notify_on_stock: Option<bool>,
+    contact_email: Option<String>,
 }
 
-impl CartBuilder {
+impl WishlistItemBuilder {
     /// Set the website_id field (required)
     pub fn website_id(mut self, value: Uuid) -> Self {
         self.website_id = Some(value);
@@ -323,67 +270,40 @@ impl CartBuilder {
         self
     }
 
-    /// Set the party_id field (optional)
-    pub fn party_id(mut self, value: Uuid) -> Self {
-        self.party_id = Some(value);
+    /// Set the item_id field (required)
+    pub fn item_id(mut self, value: Uuid) -> Self {
+        self.item_id = Some(value);
         self
     }
 
-    /// Set the state field (default: `StorefrontCartState::default()`)
-    pub fn state(mut self, value: StorefrontCartState) -> Self {
-        self.state = Some(value);
+    /// Set the notify_on_stock field (default: `false`)
+    pub fn notify_on_stock(mut self, value: bool) -> Self {
+        self.notify_on_stock = Some(value);
         self
     }
 
-    /// Set the coupon_code field (optional)
-    pub fn coupon_code(mut self, value: String) -> Self {
-        self.coupon_code = Some(value);
+    /// Set the contact_email field (optional)
+    pub fn contact_email(mut self, value: String) -> Self {
+        self.contact_email = Some(value);
         self
     }
 
-    /// Set the delivery_carrier_id field (optional)
-    pub fn delivery_carrier_id(mut self, value: Uuid) -> Self {
-        self.delivery_carrier_id = Some(value);
-        self
-    }
-
-    /// Set the fulfillment_mode field (default: `Default::default()`)
-    pub fn fulfillment_mode(mut self, value: String) -> Self {
-        self.fulfillment_mode = Some(value);
-        self
-    }
-
-    /// Set the pickup_location_id field (optional)
-    pub fn pickup_location_id(mut self, value: Uuid) -> Self {
-        self.pickup_location_id = Some(value);
-        self
-    }
-
-    /// Set the placed_at field (optional)
-    pub fn placed_at(mut self, value: DateTime<Utc>) -> Self {
-        self.placed_at = Some(value);
-        self
-    }
-
-    /// Build the Cart entity
+    /// Build the WishlistItem entity
     ///
     /// Returns Err if any required field without a default is missing.
-    pub fn build(self) -> Result<Cart, String> {
+    pub fn build(self) -> Result<WishlistItem, String> {
         let website_id = self.website_id.ok_or_else(|| "website_id is required".to_string())?;
         let visitor_id = self.visitor_id.ok_or_else(|| "visitor_id is required".to_string())?;
+        let item_id = self.item_id.ok_or_else(|| "item_id is required".to_string())?;
 
-        Ok(Cart {
+        Ok(WishlistItem {
             id: Uuid::new_v4(),
             website_id,
             visitor_id,
             portal_user_id: self.portal_user_id,
-            party_id: self.party_id,
-            state: self.state.unwrap_or_default(),
-            coupon_code: self.coupon_code,
-            delivery_carrier_id: self.delivery_carrier_id,
-            fulfillment_mode: self.fulfillment_mode.unwrap_or_default(),
-            pickup_location_id: self.pickup_location_id,
-            placed_at: self.placed_at,
+            item_id,
+            notify_on_stock: self.notify_on_stock.unwrap_or(false),
+            contact_email: self.contact_email,
             metadata: AuditMetadata::default(),
         })
     }

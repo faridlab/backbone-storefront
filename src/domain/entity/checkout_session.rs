@@ -58,6 +58,7 @@ pub struct CheckoutSession {
     pub provider_code: Option<String>,
     pub provider_reference: Option<String>,
     pub amount_total: Decimal,
+    pub pickup_location_id: Option<Uuid>,
     pub state: StorefrontCheckoutState,
     pub placed_at: Option<DateTime<Utc>>,
     pub settled_at: Option<DateTime<Utc>>,
@@ -83,6 +84,7 @@ impl CheckoutSession {
             provider_code: None,
             provider_reference: None,
             amount_total,
+            pickup_location_id: None,
             state,
             placed_at: None,
             settled_at: None,
@@ -169,6 +171,12 @@ impl CheckoutSession {
         self
     }
 
+    /// Set the pickup_location_id field (chainable)
+    pub fn with_pickup_location_id(mut self, value: Uuid) -> Self {
+        self.pickup_location_id = Some(value);
+        self
+    }
+
     /// Set the placed_at field (chainable)
     pub fn with_placed_at(mut self, value: DateTime<Utc>) -> Self {
         self.placed_at = Some(value);
@@ -209,6 +217,9 @@ impl CheckoutSession {
                 }
                 "amount_total" => {
                     if let Ok(v) = serde_json::from_value(value) { self.amount_total = v; }
+                }
+                "pickup_location_id" => {
+                    if let Ok(v) = serde_json::from_value(value) { self.pickup_location_id = v; }
                 }
                 "state" => {
                     if let Ok(v) = serde_json::from_value(value) { self.state = v; }
@@ -277,6 +288,7 @@ impl backbone_orm::EntityRepoMeta for CheckoutSession {
         m.insert("website_id".to_string(), "uuid".to_string());
         m.insert("sales_order_id".to_string(), "uuid".to_string());
         m.insert("gateway_transaction_id".to_string(), "uuid".to_string());
+        m.insert("pickup_location_id".to_string(), "uuid".to_string());
         m.insert("state".to_string(), "storefront_checkout_state".to_string());
         m
     }
@@ -301,6 +313,7 @@ pub struct CheckoutSessionBuilder {
     provider_code: Option<String>,
     provider_reference: Option<String>,
     amount_total: Option<Decimal>,
+    pickup_location_id: Option<Uuid>,
     state: Option<StorefrontCheckoutState>,
     placed_at: Option<DateTime<Utc>>,
     settled_at: Option<DateTime<Utc>>,
@@ -349,6 +362,12 @@ impl CheckoutSessionBuilder {
         self
     }
 
+    /// Set the pickup_location_id field (optional)
+    pub fn pickup_location_id(mut self, value: Uuid) -> Self {
+        self.pickup_location_id = Some(value);
+        self
+    }
+
     /// Set the state field (default: `StorefrontCheckoutState::default()`)
     pub fn state(mut self, value: StorefrontCheckoutState) -> Self {
         self.state = Some(value);
@@ -384,6 +403,7 @@ impl CheckoutSessionBuilder {
             provider_code: self.provider_code,
             provider_reference: self.provider_reference,
             amount_total,
+            pickup_location_id: self.pickup_location_id,
             state: self.state.unwrap_or_default(),
             placed_at: self.placed_at,
             settled_at: self.settled_at,

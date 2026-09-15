@@ -50,13 +50,14 @@ pub struct CheckoutSessionFilter {
     pub gateway_transaction_id: Option<Uuid>,
     pub provider_code: Option<String>,
     pub provider_reference: Option<String>,
+    pub pickup_location_id: Option<Uuid>,
     pub state: Option<StorefrontCheckoutState>,
 }
 
 impl CheckoutSessionFilter {
     /// Check if any filter is set
     pub fn has_filters(&self) -> bool {
-        self.cart_id.is_some() || self.website_id.is_some() || self.sales_order_id.is_some() || self.gateway_transaction_id.is_some() || self.provider_code.is_some() || self.provider_reference.is_some() || self.state.is_some()
+        self.cart_id.is_some() || self.website_id.is_some() || self.sales_order_id.is_some() || self.gateway_transaction_id.is_some() || self.provider_code.is_some() || self.provider_reference.is_some() || self.pickup_location_id.is_some() || self.state.is_some()
     }
 }
 

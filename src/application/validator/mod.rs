@@ -8,22 +8,24 @@ pub use shared_types::{ValidationError, ValidationErrors, ValidationResult, Enti
 pub mod cart_validator;
 pub mod cart_line_validator;
 pub mod checkout_session_validator;
+pub mod pickup_location_validator;
 pub mod product_listing_validator;
 pub mod product_price_validator;
 pub mod recovery_invite_validator;
 pub mod shopper_party_validator;
-pub mod storefront_audit_log_validator;
 pub mod website_sale_setting_validator;
+pub mod wishlist_item_validator;
 
 pub use cart_validator::{CartValidator, cart_validator};
 pub use cart_line_validator::{CartLineValidator, cart_line_validator};
 pub use checkout_session_validator::{CheckoutSessionValidator, checkout_session_validator};
+pub use pickup_location_validator::{PickupLocationValidator, pickup_location_validator};
 pub use product_listing_validator::{ProductListingValidator, product_listing_validator};
 pub use product_price_validator::{ProductPriceValidator, product_price_validator};
 pub use recovery_invite_validator::{RecoveryInviteValidator, recovery_invite_validator};
 pub use shopper_party_validator::{ShopperPartyValidator, shopper_party_validator};
-pub use storefront_audit_log_validator::{StorefrontAuditLogValidator, storefront_audit_log_validator};
 pub use website_sale_setting_validator::{WebsiteSaleSettingValidator, website_sale_setting_validator};
+pub use wishlist_item_validator::{WishlistItemValidator, wishlist_item_validator};
 
 // <<< CUSTOM
 // END CUSTOM

@@ -36,6 +36,9 @@ pub use events::*;
 /// - `CheckoutSessionDto` - Data transfer object for CheckoutSession
 /// - `CheckoutSessionSummary` - Summary view of CheckoutSession
 /// - `CheckoutSessionId` - Type-safe ID wrapper
+/// - `PickupLocationDto` - Data transfer object for PickupLocation
+/// - `PickupLocationSummary` - Summary view of PickupLocation
+/// - `PickupLocationId` - Type-safe ID wrapper
 /// - `ProductListingDto` - Data transfer object for ProductListing
 /// - `ProductListingSummary` - Summary view of ProductListing
 /// - `ProductListingId` - Type-safe ID wrapper
@@ -48,12 +51,12 @@ pub use events::*;
 /// - `ShopperPartyDto` - Data transfer object for ShopperParty
 /// - `ShopperPartySummary` - Summary view of ShopperParty
 /// - `ShopperPartyId` - Type-safe ID wrapper
-/// - `StorefrontAuditLogDto` - Data transfer object for StorefrontAuditLog
-/// - `StorefrontAuditLogSummary` - Summary view of StorefrontAuditLog
-/// - `StorefrontAuditLogId` - Type-safe ID wrapper
 /// - `WebsiteSaleSettingDto` - Data transfer object for WebsiteSaleSetting
 /// - `WebsiteSaleSettingSummary` - Summary view of WebsiteSaleSetting
 /// - `WebsiteSaleSettingId` - Type-safe ID wrapper
+/// - `WishlistItemDto` - Data transfer object for WishlistItem
+/// - `WishlistItemSummary` - Summary view of WishlistItem
+/// - `WishlistItemId` - Type-safe ID wrapper
 ///
 /// ## Public Events
 /// - `CartCreatedEvent` - Published when Cart is created
@@ -65,6 +68,9 @@ pub use events::*;
 /// - `CheckoutSessionCreatedEvent` - Published when CheckoutSession is created
 /// - `CheckoutSessionUpdatedEvent` - Published when CheckoutSession is updated
 /// - `CheckoutSessionDeletedEvent` - Published when CheckoutSession is deleted
+/// - `PickupLocationCreatedEvent` - Published when PickupLocation is created
+/// - `PickupLocationUpdatedEvent` - Published when PickupLocation is updated
+/// - `PickupLocationDeletedEvent` - Published when PickupLocation is deleted
 /// - `ProductListingCreatedEvent` - Published when ProductListing is created
 /// - `ProductListingUpdatedEvent` - Published when ProductListing is updated
 /// - `ProductListingDeletedEvent` - Published when ProductListing is deleted
@@ -77,10 +83,10 @@ pub use events::*;
 /// - `ShopperPartyCreatedEvent` - Published when ShopperParty is created
 /// - `ShopperPartyUpdatedEvent` - Published when ShopperParty is updated
 /// - `ShopperPartyDeletedEvent` - Published when ShopperParty is deleted
-/// - `StorefrontAuditLogCreatedEvent` - Published when StorefrontAuditLog is created
-/// - `StorefrontAuditLogUpdatedEvent` - Published when StorefrontAuditLog is updated
-/// - `StorefrontAuditLogDeletedEvent` - Published when StorefrontAuditLog is deleted
 /// - `WebsiteSaleSettingCreatedEvent` - Published when WebsiteSaleSetting is created
 /// - `WebsiteSaleSettingUpdatedEvent` - Published when WebsiteSaleSetting is updated
 /// - `WebsiteSaleSettingDeletedEvent` - Published when WebsiteSaleSetting is deleted
+/// - `WishlistItemCreatedEvent` - Published when WishlistItem is created
+/// - `WishlistItemUpdatedEvent` - Published when WishlistItem is updated
+/// - `WishlistItemDeletedEvent` - Published when WishlistItem is deleted
 pub struct ExportSummary;

@@ -51,12 +51,14 @@ pub struct CartFilter {
     pub state: Option<StorefrontCartState>,
     pub coupon_code: Option<String>,
     pub delivery_carrier_id: Option<Uuid>,
+    pub fulfillment_mode: Option<String>,
+    pub pickup_location_id: Option<Uuid>,
 }
 
 impl CartFilter {
     /// Check if any filter is set
     pub fn has_filters(&self) -> bool {
-        self.website_id.is_some() || self.visitor_id.is_some() || self.portal_user_id.is_some() || self.party_id.is_some() || self.state.is_some() || self.coupon_code.is_some() || self.delivery_carrier_id.is_some()
+        self.website_id.is_some() || self.visitor_id.is_some() || self.portal_user_id.is_some() || self.party_id.is_some() || self.state.is_some() || self.coupon_code.is_some() || self.delivery_carrier_id.is_some() || self.fulfillment_mode.is_some() || self.pickup_location_id.is_some()
     }
 }
 

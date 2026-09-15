@@ -52,6 +52,8 @@ pub struct CreateCheckoutSessionDto {
     pub provider_reference: Option<String>,
     #[serde(alias = "amount_total")]
     pub amount_total: Decimal,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "pickup_location_id")]
+    pub pickup_location_id: Option<Uuid>,
     pub state: StorefrontCheckoutState,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "placed_at")]
     pub placed_at: Option<DateTime<Utc>>,
@@ -90,6 +92,8 @@ pub struct UpdateCheckoutSessionDto {
     pub provider_reference: Option<String>,
     #[serde(alias = "amount_total")]
     pub amount_total: Decimal,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "pickup_location_id")]
+    pub pickup_location_id: Option<Uuid>,
     pub state: StorefrontCheckoutState,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "placed_at")]
     pub placed_at: Option<DateTime<Utc>>,
@@ -128,6 +132,8 @@ pub struct PatchCheckoutSessionDto {
     pub provider_reference: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", alias = "amount_total")]
     pub amount_total: Option<Decimal>,
+    #[serde(skip_serializing_if = "Option::is_none", alias = "pickup_location_id")]
+    pub pickup_location_id: Option<Uuid>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state: Option<StorefrontCheckoutState>,
     #[serde(skip_serializing_if = "Option::is_none", alias = "placed_at")]
@@ -139,7 +145,7 @@ pub struct PatchCheckoutSessionDto {
 impl PatchCheckoutSessionDto {
     /// Check if any field is set
     pub fn has_changes(&self) -> bool {
-        self.cart_id.is_some() || self.website_id.is_some() || self.sales_order_id.is_some() || self.gateway_transaction_id.is_some() || self.provider_code.is_some() || self.provider_reference.is_some() || self.amount_total.is_some() || self.state.is_some() || self.placed_at.is_some() || self.settled_at.is_some()
+        self.cart_id.is_some() || self.website_id.is_some() || self.sales_order_id.is_some() || self.gateway_transaction_id.is_some() || self.provider_code.is_some() || self.provider_reference.is_some() || self.amount_total.is_some() || self.pickup_location_id.is_some() || self.state.is_some() || self.placed_at.is_some() || self.settled_at.is_some()
     }
 }
 
@@ -166,6 +172,7 @@ pub struct CheckoutSessionResponseDto {
     pub provider_code: Option<String>,
     pub provider_reference: Option<String>,
     pub amount_total: Decimal,
+    pub pickup_location_id: Option<Uuid>,
     pub state: StorefrontCheckoutState,
     pub placed_at: Option<DateTime<Utc>>,
     pub settled_at: Option<DateTime<Utc>>,
@@ -247,6 +254,7 @@ impl From<CheckoutSession> for CheckoutSessionResponseDto {
             provider_code: entity.provider_code,
             provider_reference: entity.provider_reference,
             amount_total: entity.amount_total,
+            pickup_location_id: entity.pickup_location_id,
             state: entity.state,
             placed_at: entity.placed_at,
             settled_at: entity.settled_at,
@@ -279,6 +287,7 @@ impl From<CreateCheckoutSessionDto> for CheckoutSession {
             provider_code: dto.provider_code,
             provider_reference: dto.provider_reference,
             amount_total: dto.amount_total,
+            pickup_location_id: dto.pickup_location_id,
             state: dto.state,
             placed_at: dto.placed_at,
             settled_at: dto.settled_at,
@@ -298,6 +307,7 @@ impl From<&CheckoutSession> for CheckoutSessionResponseDto {
             provider_code: entity.provider_code.clone(),
             provider_reference: entity.provider_reference.clone(),
             amount_total: entity.amount_total.clone(),
+            pickup_location_id: entity.pickup_location_id.clone(),
             state: entity.state.clone(),
             placed_at: entity.placed_at.clone(),
             settled_at: entity.settled_at.clone(),
@@ -321,6 +331,7 @@ impl backbone_core::ApplyUpdateDto<UpdateCheckoutSessionDto> for CheckoutSession
         self.provider_code = dto.provider_code;
         self.provider_reference = dto.provider_reference;
         self.amount_total = dto.amount_total;
+        self.pickup_location_id = dto.pickup_location_id;
         self.state = dto.state;
         self.placed_at = dto.placed_at;
         self.settled_at = dto.settled_at;

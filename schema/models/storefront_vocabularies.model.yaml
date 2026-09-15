@@ -1,0 +1,53 @@
+# =============================================================================
+# storefront — shared enums for the cart, checkout and access-gate vocabularies.
+#
+# The audit log that used to live here was retired: storefront records audited
+# facts on auditlog.audit_trails now, so the module no longer owns a table or a
+# closed event enum of its own. These three enums are unrelated to auditing and
+# are referenced by other models, which is why the file remains.
+#
+# PORT DECISIONS (source: docs/odoo/website/ecommerce — docs/spec.md §3.9):
+#  - Append-only, service-emitted by the verbs. Rows are never updated,
+#    never deleted by application code.
+#  - The closed event vocabulary carries every security-relevant edge —
+#    a refused publish-field patch lands here as PUBLISH_REFUSED, so a
+#    refused write is still a durable fact (the website precedent).
+# =============================================================================
+
+enums:
+  - name: StorefrontCartState
+    description: "The cart lifecycle: open draft, placed (order minted), closed, cancelled"
+    variants:
+      - name: open
+        description: "The mutable draft — the partial-unique state (one open cart per visitor)"
+        default: true
+      - name: placed
+        description: "The place verb minted the order and checkout session (under the row lock)"
+      - name: closed
+        description: "Terminal completed state"
+      - name: cancelled
+        description: "Terminal cancelled state (the cancel mirror)"
+
+  - name: StorefrontCheckoutState
+    description: "The checkout lifecycle from place to settlement"
+    variants:
+      - name: pending_payment
+        description: "Order minted, pending gateway transaction awaiting settlement (the paid arm's birth state)"
+        default: true
+      - name: confirmed_free
+        description: "Zero-total arm: confirmed at place with no gateway row"
+      - name: settled
+        description: "The settlement consumer stamped the gateway settle and confirmed the order"
+      - name: failed
+        description: "The payment attempt failed"
+      - name: cancelled
+        description: "The cancel mirror stamped the checkout cancelled"
+
+  - name: StorefrontAccessGate
+    description: "The per-website B2B access gate"
+    variants:
+      - name: open
+        description: "Anonymous shoppers served (the default)"
+        default: true
+      - name: members_only
+        description: "Every public catalog/cart/checkout verb requires a verified portal principal (typed 401 otherwise)"

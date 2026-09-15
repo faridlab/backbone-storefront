@@ -15,12 +15,13 @@ use std::env;
 use backbone_storefront::seeders::SeedCartSeeder;
 use backbone_storefront::seeders::SeedCartLineSeeder;
 use backbone_storefront::seeders::SeedCheckoutSessionSeeder;
+use backbone_storefront::seeders::SeedPickupLocationSeeder;
 use backbone_storefront::seeders::SeedProductListingSeeder;
 use backbone_storefront::seeders::SeedProductPriceSeeder;
 use backbone_storefront::seeders::SeedRecoveryInviteSeeder;
 use backbone_storefront::seeders::SeedShopperPartySeeder;
-use backbone_storefront::seeders::SeedStorefrontAuditLogSeeder;
 use backbone_storefront::seeders::SeedWebsiteSaleSettingSeeder;
+use backbone_storefront::seeders::SeedWishlistItemSeeder;
 use backbone_storefront::seeders::Seeder;
 
 #[tokio::main]
@@ -52,12 +53,13 @@ async fn main() -> Result<()> {
     seeders.push(Box::new(SeedCartSeeder::new()));
     seeders.push(Box::new(SeedCartLineSeeder::new()));
     seeders.push(Box::new(SeedCheckoutSessionSeeder::new()));
+    seeders.push(Box::new(SeedPickupLocationSeeder::new()));
     seeders.push(Box::new(SeedProductListingSeeder::new()));
     seeders.push(Box::new(SeedProductPriceSeeder::new()));
     seeders.push(Box::new(SeedRecoveryInviteSeeder::new()));
     seeders.push(Box::new(SeedShopperPartySeeder::new()));
-    seeders.push(Box::new(SeedStorefrontAuditLogSeeder::new()));
     seeders.push(Box::new(SeedWebsiteSaleSettingSeeder::new()));
+    seeders.push(Box::new(SeedWishlistItemSeeder::new()));
 
     // Sort by order
     seeders.sort_by_key(|s| s.order());

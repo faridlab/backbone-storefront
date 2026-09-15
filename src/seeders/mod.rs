@@ -12,22 +12,24 @@ use sqlx::PgPool;
 mod cart_seeder;
 mod cart_line_seeder;
 mod checkout_session_seeder;
+mod pickup_location_seeder;
 mod product_listing_seeder;
 mod product_price_seeder;
 mod recovery_invite_seeder;
 mod shopper_party_seeder;
-mod storefront_audit_log_seeder;
 mod website_sale_setting_seeder;
+mod wishlist_item_seeder;
 
 pub use cart_seeder::SeedCartSeeder;
 pub use cart_line_seeder::SeedCartLineSeeder;
 pub use checkout_session_seeder::SeedCheckoutSessionSeeder;
+pub use pickup_location_seeder::SeedPickupLocationSeeder;
 pub use product_listing_seeder::SeedProductListingSeeder;
 pub use product_price_seeder::SeedProductPriceSeeder;
 pub use recovery_invite_seeder::SeedRecoveryInviteSeeder;
 pub use shopper_party_seeder::SeedShopperPartySeeder;
-pub use storefront_audit_log_seeder::SeedStorefrontAuditLogSeeder;
 pub use website_sale_setting_seeder::SeedWebsiteSaleSettingSeeder;
+pub use wishlist_item_seeder::SeedWishlistItemSeeder;
 
 // ============================================================================
 // SEEDER TRAIT

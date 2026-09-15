@@ -8,6 +8,8 @@ pub mod cart_line_events;
 pub mod cart_line_event_handlers;
 pub mod checkout_session_events;
 pub mod checkout_session_event_handlers;
+pub mod pickup_location_events;
+pub mod pickup_location_event_handlers;
 pub mod product_listing_events;
 pub mod product_listing_event_handlers;
 pub mod product_price_events;
@@ -16,10 +18,10 @@ pub mod recovery_invite_events;
 pub mod recovery_invite_event_handlers;
 pub mod shopper_party_events;
 pub mod shopper_party_event_handlers;
-pub mod storefront_audit_log_events;
-pub mod storefront_audit_log_event_handlers;
 pub mod website_sale_setting_events;
 pub mod website_sale_setting_event_handlers;
+pub mod wishlist_item_events;
+pub mod wishlist_item_event_handlers;
 
 pub use cart_events::{CartEvent, CartEventPublisher, NoopCartEventPublisher};
 pub use cart_event_handlers::CartEventHandler;
@@ -27,6 +29,8 @@ pub use cart_line_events::{CartLineEvent, CartLineEventPublisher, NoopCartLineEv
 pub use cart_line_event_handlers::CartLineEventHandler;
 pub use checkout_session_events::{CheckoutSessionEvent, CheckoutSessionEventPublisher, NoopCheckoutSessionEventPublisher};
 pub use checkout_session_event_handlers::CheckoutSessionEventHandler;
+pub use pickup_location_events::{PickupLocationEvent, PickupLocationEventPublisher, NoopPickupLocationEventPublisher};
+pub use pickup_location_event_handlers::PickupLocationEventHandler;
 pub use product_listing_events::{ProductListingEvent, ProductListingEventPublisher, NoopProductListingEventPublisher};
 pub use product_listing_event_handlers::ProductListingEventHandler;
 pub use product_price_events::{ProductPriceEvent, ProductPriceEventPublisher, NoopProductPriceEventPublisher};
@@ -35,10 +39,10 @@ pub use recovery_invite_events::{RecoveryInviteEvent, RecoveryInviteEventPublish
 pub use recovery_invite_event_handlers::RecoveryInviteEventHandler;
 pub use shopper_party_events::{ShopperPartyEvent, ShopperPartyEventPublisher, NoopShopperPartyEventPublisher};
 pub use shopper_party_event_handlers::ShopperPartyEventHandler;
-pub use storefront_audit_log_events::{StorefrontAuditLogEvent, StorefrontAuditLogEventPublisher, NoopStorefrontAuditLogEventPublisher};
-pub use storefront_audit_log_event_handlers::StorefrontAuditLogEventHandler;
 pub use website_sale_setting_events::{WebsiteSaleSettingEvent, WebsiteSaleSettingEventPublisher, NoopWebsiteSaleSettingEventPublisher};
 pub use website_sale_setting_event_handlers::WebsiteSaleSettingEventHandler;
+pub use wishlist_item_events::{WishlistItemEvent, WishlistItemEventPublisher, NoopWishlistItemEventPublisher};
+pub use wishlist_item_event_handlers::WishlistItemEventHandler;
 
 // <<< CUSTOM
 // END CUSTOM
