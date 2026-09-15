@@ -7,7 +7,7 @@ info:
     This API provides 11 standard CRUD endpoints for each model.
 
 servers:
-  - url: http://localhost:3000
+  - url: /
     description: Development server
 
 tags:
@@ -17,6 +17,8 @@ tags:
     description: CartLine management endpoints
   - name: CheckoutSessions
     description: CheckoutSession management endpoints
+  - name: PickupLocations
+    description: PickupLocation management endpoints
   - name: ProductListings
     description: ProductListing management endpoints
   - name: ProductPrices
@@ -29,9 +31,11 @@ tags:
     description: StorefrontAuditLog management endpoints
   - name: WebsiteSaleSettings
     description: WebsiteSaleSetting management endpoints
+  - name: WishlistItems
+    description: WishlistItem management endpoints
 
 paths:
-  /api/v1/carts:
+  /api/v1/storefront/carts:
     get:
       tags:
         - Carts
@@ -77,7 +81,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /api/v1/carts/{id}:
+  /api/v1/storefront/carts/{id}:
     parameters:
       - $ref: '#/components/parameters/IdParam'
 
@@ -149,7 +153,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/v1/carts/bulk:
+  /api/v1/storefront/carts/bulk:
     post:
       tags:
         - Carts
@@ -241,7 +245,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/carts/upsert:
+  /api/v1/storefront/carts/upsert:
     post:
       tags:
         - Carts
@@ -271,7 +275,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Cart'
 
-  /api/v1/carts/trash:
+  /api/v1/storefront/carts/trash:
     get:
       tags:
         - Carts
@@ -288,7 +292,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CartList'
 
-  /api/v1/carts/{id}/restore:
+  /api/v1/storefront/carts/{id}/restore:
     parameters:
       - $ref: '#/components/parameters/IdParam'
     post:
@@ -306,7 +310,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/v1/carts/empty:
+  /api/v1/storefront/carts/empty:
     delete:
       tags:
         - Carts
@@ -323,7 +327,7 @@ paths:
                   deleted_count:
                     type: integer
 
-  /api/v1/carts/delete/bulk:
+  /api/v1/storefront/carts/delete/bulk:
     post:
       tags:
         - Carts
@@ -343,7 +347,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/carts/restore/bulk:
+  /api/v1/storefront/carts/restore/bulk:
     post:
       tags:
         - Carts
@@ -361,7 +365,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/carts/restore/all:
+  /api/v1/storefront/carts/restore/all:
     post:
       tags:
         - Carts
@@ -377,7 +381,7 @@ paths:
                 properties:
                   restored: { type: integer }
 
-  /api/v1/carts/trash/bulk:
+  /api/v1/storefront/carts/trash/bulk:
     delete:
       tags:
         - Carts
@@ -397,7 +401,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/cart_lines:
+  /api/v1/storefront/cart_lines:
     get:
       tags:
         - CartLines
@@ -443,7 +447,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /api/v1/cart_lines/{id}:
+  /api/v1/storefront/cart_lines/{id}:
     parameters:
       - $ref: '#/components/parameters/IdParam'
 
@@ -515,7 +519,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/v1/cart_lines/bulk:
+  /api/v1/storefront/cart_lines/bulk:
     post:
       tags:
         - CartLines
@@ -607,7 +611,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/cart_lines/upsert:
+  /api/v1/storefront/cart_lines/upsert:
     post:
       tags:
         - CartLines
@@ -637,7 +641,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CartLine'
 
-  /api/v1/cart_lines/trash:
+  /api/v1/storefront/cart_lines/trash:
     get:
       tags:
         - CartLines
@@ -654,7 +658,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CartLineList'
 
-  /api/v1/cart_lines/{id}/restore:
+  /api/v1/storefront/cart_lines/{id}/restore:
     parameters:
       - $ref: '#/components/parameters/IdParam'
     post:
@@ -672,7 +676,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/v1/cart_lines/empty:
+  /api/v1/storefront/cart_lines/empty:
     delete:
       tags:
         - CartLines
@@ -689,7 +693,7 @@ paths:
                   deleted_count:
                     type: integer
 
-  /api/v1/cart_lines/delete/bulk:
+  /api/v1/storefront/cart_lines/delete/bulk:
     post:
       tags:
         - CartLines
@@ -709,7 +713,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/cart_lines/restore/bulk:
+  /api/v1/storefront/cart_lines/restore/bulk:
     post:
       tags:
         - CartLines
@@ -727,7 +731,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/cart_lines/restore/all:
+  /api/v1/storefront/cart_lines/restore/all:
     post:
       tags:
         - CartLines
@@ -743,7 +747,7 @@ paths:
                 properties:
                   restored: { type: integer }
 
-  /api/v1/cart_lines/trash/bulk:
+  /api/v1/storefront/cart_lines/trash/bulk:
     delete:
       tags:
         - CartLines
@@ -763,7 +767,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/checkout_sessions:
+  /api/v1/storefront/checkout_sessions:
     get:
       tags:
         - CheckoutSessions
@@ -809,7 +813,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /api/v1/checkout_sessions/{id}:
+  /api/v1/storefront/checkout_sessions/{id}:
     parameters:
       - $ref: '#/components/parameters/IdParam'
 
@@ -881,7 +885,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/v1/checkout_sessions/bulk:
+  /api/v1/storefront/checkout_sessions/bulk:
     post:
       tags:
         - CheckoutSessions
@@ -973,7 +977,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/checkout_sessions/upsert:
+  /api/v1/storefront/checkout_sessions/upsert:
     post:
       tags:
         - CheckoutSessions
@@ -1003,7 +1007,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CheckoutSession'
 
-  /api/v1/checkout_sessions/trash:
+  /api/v1/storefront/checkout_sessions/trash:
     get:
       tags:
         - CheckoutSessions
@@ -1020,7 +1024,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CheckoutSessionList'
 
-  /api/v1/checkout_sessions/{id}/restore:
+  /api/v1/storefront/checkout_sessions/{id}/restore:
     parameters:
       - $ref: '#/components/parameters/IdParam'
     post:
@@ -1038,7 +1042,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/v1/checkout_sessions/empty:
+  /api/v1/storefront/checkout_sessions/empty:
     delete:
       tags:
         - CheckoutSessions
@@ -1055,7 +1059,7 @@ paths:
                   deleted_count:
                     type: integer
 
-  /api/v1/checkout_sessions/delete/bulk:
+  /api/v1/storefront/checkout_sessions/delete/bulk:
     post:
       tags:
         - CheckoutSessions
@@ -1075,7 +1079,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/checkout_sessions/restore/bulk:
+  /api/v1/storefront/checkout_sessions/restore/bulk:
     post:
       tags:
         - CheckoutSessions
@@ -1093,7 +1097,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/checkout_sessions/restore/all:
+  /api/v1/storefront/checkout_sessions/restore/all:
     post:
       tags:
         - CheckoutSessions
@@ -1109,7 +1113,7 @@ paths:
                 properties:
                   restored: { type: integer }
 
-  /api/v1/checkout_sessions/trash/bulk:
+  /api/v1/storefront/checkout_sessions/trash/bulk:
     delete:
       tags:
         - CheckoutSessions
@@ -1129,7 +1133,373 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/product_listings:
+  /api/v1/storefront/pickup_locations:
+    get:
+      tags:
+        - PickupLocations
+      summary: List PickupLocations
+      description: Get a paginated list of PickupLocations with optional filtering and sorting
+      operationId: listPickupLocations
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PickupLocationList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - PickupLocations
+      summary: Create PickupLocation
+      description: Create a new PickupLocation
+      operationId: createPickupLocation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePickupLocationRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PickupLocation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/storefront/pickup_locations/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+
+    get:
+      tags:
+        - PickupLocations
+      summary: Get PickupLocation by ID
+      operationId: getPickupLocation
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PickupLocation'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - PickupLocations
+      summary: Update PickupLocation (full)
+      operationId: updatePickupLocation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePickupLocationRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PickupLocation'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags:
+        - PickupLocations
+      summary: Update PickupLocation (partial)
+      operationId: patchPickupLocation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchPickupLocationRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PickupLocation'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - PickupLocations
+      summary: Delete PickupLocation (soft)
+      operationId: deletePickupLocation
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/storefront/pickup_locations/bulk:
+    post:
+      tags:
+        - PickupLocations
+      summary: Bulk create PickupLocations
+      operationId: bulkCreatePickupLocations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/CreatePickupLocationRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PickupLocation'
+    put:
+      tags:
+        - PickupLocations
+      summary: Bulk update PickupLocations (full, atomic)
+      operationId: bulkUpdatePickupLocations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                allOf:
+                  - type: object
+                    required: [id]
+                    properties:
+                      id:
+                        type: string
+                  - $ref: '#/components/schemas/UpdatePickupLocationRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PickupLocationBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    patch:
+      tags:
+        - PickupLocations
+      summary: Bulk partial-update PickupLocations (atomic)
+      operationId: bulkPatchPickupLocations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ids, patch]
+                  properties:
+                    ids:
+                      type: array
+                      items: { type: string }
+                    patch:
+                      type: object
+                      additionalProperties: true
+                - type: object
+                  required: [items]
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        type: object
+                        required: [id, patch]
+                        properties:
+                          id: { type: string }
+                          patch: { type: object, additionalProperties: true }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PickupLocationBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/storefront/pickup_locations/upsert:
+    post:
+      tags:
+        - PickupLocations
+      summary: Upsert PickupLocation
+      operationId: upsertPickupLocation
+      parameters:
+        - name: key_field
+          in: query
+          schema:
+            type: string
+        - name: key_value
+          in: query
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePickupLocationRequest'
+      responses:
+        '200':
+          description: Upserted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PickupLocation'
+
+  /api/v1/storefront/pickup_locations/trash:
+    get:
+      tags:
+        - PickupLocations
+      summary: List deleted PickupLocations
+      operationId: listDeletedPickupLocations
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PickupLocationList'
+
+  /api/v1/storefront/pickup_locations/{id}/restore:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    post:
+      tags:
+        - PickupLocations
+      summary: Restore deleted PickupLocation
+      operationId: restorePickupLocation
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PickupLocation'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/storefront/pickup_locations/empty:
+    delete:
+      tags:
+        - PickupLocations
+      summary: Empty trash for PickupLocations
+      operationId: emptyTrashPickupLocations
+      responses:
+        '200':
+          description: Trash emptied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted_count:
+                    type: integer
+
+  /api/v1/storefront/pickup_locations/delete/bulk:
+    post:
+      tags:
+        - PickupLocations
+      summary: Bulk soft-delete PickupLocations by ids (atomic)
+      operationId: bulkDeletePickupLocations
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Soft-deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  soft_deleted: { type: integer }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/storefront/pickup_locations/restore/bulk:
+    post:
+      tags:
+        - PickupLocations
+      summary: Bulk restore PickupLocations by ids (atomic)
+      operationId: bulkRestorePickupLocations
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PickupLocationBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/storefront/pickup_locations/restore/all:
+    post:
+      tags:
+        - PickupLocations
+      summary: Restore all soft-deleted PickupLocations
+      operationId: restoreAllPickupLocations
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  restored: { type: integer }
+
+  /api/v1/storefront/pickup_locations/trash/bulk:
+    delete:
+      tags:
+        - PickupLocations
+      summary: Bulk permanently-delete PickupLocations from trash by ids (atomic)
+      operationId: bulkPermanentDeletePickupLocations
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Permanently deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  permanently_deleted: { type: integer }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/storefront/product_listings:
     get:
       tags:
         - ProductListings
@@ -1175,7 +1545,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /api/v1/product_listings/{id}:
+  /api/v1/storefront/product_listings/{id}:
     parameters:
       - $ref: '#/components/parameters/IdParam'
 
@@ -1247,7 +1617,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/v1/product_listings/bulk:
+  /api/v1/storefront/product_listings/bulk:
     post:
       tags:
         - ProductListings
@@ -1339,7 +1709,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/product_listings/upsert:
+  /api/v1/storefront/product_listings/upsert:
     post:
       tags:
         - ProductListings
@@ -1369,7 +1739,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProductListing'
 
-  /api/v1/product_listings/trash:
+  /api/v1/storefront/product_listings/trash:
     get:
       tags:
         - ProductListings
@@ -1386,7 +1756,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProductListingList'
 
-  /api/v1/product_listings/{id}/restore:
+  /api/v1/storefront/product_listings/{id}/restore:
     parameters:
       - $ref: '#/components/parameters/IdParam'
     post:
@@ -1404,7 +1774,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/v1/product_listings/empty:
+  /api/v1/storefront/product_listings/empty:
     delete:
       tags:
         - ProductListings
@@ -1421,7 +1791,7 @@ paths:
                   deleted_count:
                     type: integer
 
-  /api/v1/product_listings/delete/bulk:
+  /api/v1/storefront/product_listings/delete/bulk:
     post:
       tags:
         - ProductListings
@@ -1441,7 +1811,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/product_listings/restore/bulk:
+  /api/v1/storefront/product_listings/restore/bulk:
     post:
       tags:
         - ProductListings
@@ -1459,7 +1829,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/product_listings/restore/all:
+  /api/v1/storefront/product_listings/restore/all:
     post:
       tags:
         - ProductListings
@@ -1475,7 +1845,7 @@ paths:
                 properties:
                   restored: { type: integer }
 
-  /api/v1/product_listings/trash/bulk:
+  /api/v1/storefront/product_listings/trash/bulk:
     delete:
       tags:
         - ProductListings
@@ -1495,7 +1865,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/product_prices:
+  /api/v1/storefront/product_prices:
     get:
       tags:
         - ProductPrices
@@ -1541,7 +1911,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /api/v1/product_prices/{id}:
+  /api/v1/storefront/product_prices/{id}:
     parameters:
       - $ref: '#/components/parameters/IdParam'
 
@@ -1613,7 +1983,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/v1/product_prices/bulk:
+  /api/v1/storefront/product_prices/bulk:
     post:
       tags:
         - ProductPrices
@@ -1705,7 +2075,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/product_prices/upsert:
+  /api/v1/storefront/product_prices/upsert:
     post:
       tags:
         - ProductPrices
@@ -1735,7 +2105,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProductPrice'
 
-  /api/v1/product_prices/trash:
+  /api/v1/storefront/product_prices/trash:
     get:
       tags:
         - ProductPrices
@@ -1752,7 +2122,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProductPriceList'
 
-  /api/v1/product_prices/{id}/restore:
+  /api/v1/storefront/product_prices/{id}/restore:
     parameters:
       - $ref: '#/components/parameters/IdParam'
     post:
@@ -1770,7 +2140,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/v1/product_prices/empty:
+  /api/v1/storefront/product_prices/empty:
     delete:
       tags:
         - ProductPrices
@@ -1787,7 +2157,7 @@ paths:
                   deleted_count:
                     type: integer
 
-  /api/v1/product_prices/delete/bulk:
+  /api/v1/storefront/product_prices/delete/bulk:
     post:
       tags:
         - ProductPrices
@@ -1807,7 +2177,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/product_prices/restore/bulk:
+  /api/v1/storefront/product_prices/restore/bulk:
     post:
       tags:
         - ProductPrices
@@ -1825,7 +2195,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/product_prices/restore/all:
+  /api/v1/storefront/product_prices/restore/all:
     post:
       tags:
         - ProductPrices
@@ -1841,7 +2211,7 @@ paths:
                 properties:
                   restored: { type: integer }
 
-  /api/v1/product_prices/trash/bulk:
+  /api/v1/storefront/product_prices/trash/bulk:
     delete:
       tags:
         - ProductPrices
@@ -1861,7 +2231,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/recovery_invites:
+  /api/v1/storefront/recovery_invites:
     get:
       tags:
         - RecoveryInvites
@@ -1907,7 +2277,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /api/v1/recovery_invites/{id}:
+  /api/v1/storefront/recovery_invites/{id}:
     parameters:
       - $ref: '#/components/parameters/IdParam'
 
@@ -1979,7 +2349,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/v1/recovery_invites/bulk:
+  /api/v1/storefront/recovery_invites/bulk:
     post:
       tags:
         - RecoveryInvites
@@ -2071,7 +2441,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/recovery_invites/upsert:
+  /api/v1/storefront/recovery_invites/upsert:
     post:
       tags:
         - RecoveryInvites
@@ -2101,7 +2471,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/RecoveryInvite'
 
-  /api/v1/recovery_invites/trash:
+  /api/v1/storefront/recovery_invites/trash:
     get:
       tags:
         - RecoveryInvites
@@ -2118,7 +2488,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/RecoveryInviteList'
 
-  /api/v1/recovery_invites/{id}/restore:
+  /api/v1/storefront/recovery_invites/{id}/restore:
     parameters:
       - $ref: '#/components/parameters/IdParam'
     post:
@@ -2136,7 +2506,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/v1/recovery_invites/empty:
+  /api/v1/storefront/recovery_invites/empty:
     delete:
       tags:
         - RecoveryInvites
@@ -2153,7 +2523,7 @@ paths:
                   deleted_count:
                     type: integer
 
-  /api/v1/recovery_invites/delete/bulk:
+  /api/v1/storefront/recovery_invites/delete/bulk:
     post:
       tags:
         - RecoveryInvites
@@ -2173,7 +2543,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/recovery_invites/restore/bulk:
+  /api/v1/storefront/recovery_invites/restore/bulk:
     post:
       tags:
         - RecoveryInvites
@@ -2191,7 +2561,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/recovery_invites/restore/all:
+  /api/v1/storefront/recovery_invites/restore/all:
     post:
       tags:
         - RecoveryInvites
@@ -2207,7 +2577,7 @@ paths:
                 properties:
                   restored: { type: integer }
 
-  /api/v1/recovery_invites/trash/bulk:
+  /api/v1/storefront/recovery_invites/trash/bulk:
     delete:
       tags:
         - RecoveryInvites
@@ -2227,7 +2597,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/shopper_parties:
+  /api/v1/storefront/shopper_parties:
     get:
       tags:
         - ShopperParties
@@ -2273,7 +2643,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /api/v1/shopper_parties/{id}:
+  /api/v1/storefront/shopper_parties/{id}:
     parameters:
       - $ref: '#/components/parameters/IdParam'
 
@@ -2345,7 +2715,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/v1/shopper_parties/bulk:
+  /api/v1/storefront/shopper_parties/bulk:
     post:
       tags:
         - ShopperParties
@@ -2437,7 +2807,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/shopper_parties/upsert:
+  /api/v1/storefront/shopper_parties/upsert:
     post:
       tags:
         - ShopperParties
@@ -2467,7 +2837,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ShopperParty'
 
-  /api/v1/shopper_parties/trash:
+  /api/v1/storefront/shopper_parties/trash:
     get:
       tags:
         - ShopperParties
@@ -2484,7 +2854,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ShopperPartyList'
 
-  /api/v1/shopper_parties/{id}/restore:
+  /api/v1/storefront/shopper_parties/{id}/restore:
     parameters:
       - $ref: '#/components/parameters/IdParam'
     post:
@@ -2502,7 +2872,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/v1/shopper_parties/empty:
+  /api/v1/storefront/shopper_parties/empty:
     delete:
       tags:
         - ShopperParties
@@ -2519,7 +2889,7 @@ paths:
                   deleted_count:
                     type: integer
 
-  /api/v1/shopper_parties/delete/bulk:
+  /api/v1/storefront/shopper_parties/delete/bulk:
     post:
       tags:
         - ShopperParties
@@ -2539,7 +2909,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/shopper_parties/restore/bulk:
+  /api/v1/storefront/shopper_parties/restore/bulk:
     post:
       tags:
         - ShopperParties
@@ -2557,7 +2927,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/shopper_parties/restore/all:
+  /api/v1/storefront/shopper_parties/restore/all:
     post:
       tags:
         - ShopperParties
@@ -2573,7 +2943,7 @@ paths:
                 properties:
                   restored: { type: integer }
 
-  /api/v1/shopper_parties/trash/bulk:
+  /api/v1/storefront/shopper_parties/trash/bulk:
     delete:
       tags:
         - ShopperParties
@@ -2593,7 +2963,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/storefront_audit_logs:
+  /api/v1/storefront/storefront_audit_logs:
     get:
       tags:
         - StorefrontAuditLogs
@@ -2639,7 +3009,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /api/v1/storefront_audit_logs/{id}:
+  /api/v1/storefront/storefront_audit_logs/{id}:
     parameters:
       - $ref: '#/components/parameters/IdParam'
 
@@ -2711,7 +3081,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/v1/storefront_audit_logs/bulk:
+  /api/v1/storefront/storefront_audit_logs/bulk:
     post:
       tags:
         - StorefrontAuditLogs
@@ -2803,7 +3173,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/storefront_audit_logs/upsert:
+  /api/v1/storefront/storefront_audit_logs/upsert:
     post:
       tags:
         - StorefrontAuditLogs
@@ -2833,7 +3203,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/StorefrontAuditLog'
 
-  /api/v1/storefront_audit_logs/trash:
+  /api/v1/storefront/storefront_audit_logs/trash:
     get:
       tags:
         - StorefrontAuditLogs
@@ -2850,7 +3220,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/StorefrontAuditLogList'
 
-  /api/v1/storefront_audit_logs/{id}/restore:
+  /api/v1/storefront/storefront_audit_logs/{id}/restore:
     parameters:
       - $ref: '#/components/parameters/IdParam'
     post:
@@ -2868,7 +3238,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/v1/storefront_audit_logs/empty:
+  /api/v1/storefront/storefront_audit_logs/empty:
     delete:
       tags:
         - StorefrontAuditLogs
@@ -2885,7 +3255,7 @@ paths:
                   deleted_count:
                     type: integer
 
-  /api/v1/storefront_audit_logs/delete/bulk:
+  /api/v1/storefront/storefront_audit_logs/delete/bulk:
     post:
       tags:
         - StorefrontAuditLogs
@@ -2905,7 +3275,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/storefront_audit_logs/restore/bulk:
+  /api/v1/storefront/storefront_audit_logs/restore/bulk:
     post:
       tags:
         - StorefrontAuditLogs
@@ -2923,7 +3293,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/storefront_audit_logs/restore/all:
+  /api/v1/storefront/storefront_audit_logs/restore/all:
     post:
       tags:
         - StorefrontAuditLogs
@@ -2939,7 +3309,7 @@ paths:
                 properties:
                   restored: { type: integer }
 
-  /api/v1/storefront_audit_logs/trash/bulk:
+  /api/v1/storefront/storefront_audit_logs/trash/bulk:
     delete:
       tags:
         - StorefrontAuditLogs
@@ -2959,7 +3329,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/website_sale_settings:
+  /api/v1/storefront/website_sale_settings:
     get:
       tags:
         - WebsiteSaleSettings
@@ -3005,7 +3375,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /api/v1/website_sale_settings/{id}:
+  /api/v1/storefront/website_sale_settings/{id}:
     parameters:
       - $ref: '#/components/parameters/IdParam'
 
@@ -3077,7 +3447,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/v1/website_sale_settings/bulk:
+  /api/v1/storefront/website_sale_settings/bulk:
     post:
       tags:
         - WebsiteSaleSettings
@@ -3169,7 +3539,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/website_sale_settings/upsert:
+  /api/v1/storefront/website_sale_settings/upsert:
     post:
       tags:
         - WebsiteSaleSettings
@@ -3199,7 +3569,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/WebsiteSaleSetting'
 
-  /api/v1/website_sale_settings/trash:
+  /api/v1/storefront/website_sale_settings/trash:
     get:
       tags:
         - WebsiteSaleSettings
@@ -3216,7 +3586,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/WebsiteSaleSettingList'
 
-  /api/v1/website_sale_settings/{id}/restore:
+  /api/v1/storefront/website_sale_settings/{id}/restore:
     parameters:
       - $ref: '#/components/parameters/IdParam'
     post:
@@ -3234,7 +3604,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/v1/website_sale_settings/empty:
+  /api/v1/storefront/website_sale_settings/empty:
     delete:
       tags:
         - WebsiteSaleSettings
@@ -3251,7 +3621,7 @@ paths:
                   deleted_count:
                     type: integer
 
-  /api/v1/website_sale_settings/delete/bulk:
+  /api/v1/storefront/website_sale_settings/delete/bulk:
     post:
       tags:
         - WebsiteSaleSettings
@@ -3271,7 +3641,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/website_sale_settings/restore/bulk:
+  /api/v1/storefront/website_sale_settings/restore/bulk:
     post:
       tags:
         - WebsiteSaleSettings
@@ -3289,7 +3659,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/v1/website_sale_settings/restore/all:
+  /api/v1/storefront/website_sale_settings/restore/all:
     post:
       tags:
         - WebsiteSaleSettings
@@ -3305,12 +3675,378 @@ paths:
                 properties:
                   restored: { type: integer }
 
-  /api/v1/website_sale_settings/trash/bulk:
+  /api/v1/storefront/website_sale_settings/trash/bulk:
     delete:
       tags:
         - WebsiteSaleSettings
       summary: Bulk permanently-delete WebsiteSaleSettings from trash by ids (atomic)
       operationId: bulkPermanentDeleteWebsiteSaleSettings
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Permanently deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  permanently_deleted: { type: integer }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/storefront/wishlist_items:
+    get:
+      tags:
+        - WishlistItems
+      summary: List WishlistItems
+      description: Get a paginated list of WishlistItems with optional filtering and sorting
+      operationId: listWishlistItems
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WishlistItemList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - WishlistItems
+      summary: Create WishlistItem
+      description: Create a new WishlistItem
+      operationId: createWishlistItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWishlistItemRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WishlistItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/storefront/wishlist_items/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+
+    get:
+      tags:
+        - WishlistItems
+      summary: Get WishlistItem by ID
+      operationId: getWishlistItem
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WishlistItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - WishlistItems
+      summary: Update WishlistItem (full)
+      operationId: updateWishlistItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWishlistItemRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WishlistItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags:
+        - WishlistItems
+      summary: Update WishlistItem (partial)
+      operationId: patchWishlistItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchWishlistItemRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WishlistItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - WishlistItems
+      summary: Delete WishlistItem (soft)
+      operationId: deleteWishlistItem
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/storefront/wishlist_items/bulk:
+    post:
+      tags:
+        - WishlistItems
+      summary: Bulk create WishlistItems
+      operationId: bulkCreateWishlistItems
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/CreateWishlistItemRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WishlistItem'
+    put:
+      tags:
+        - WishlistItems
+      summary: Bulk update WishlistItems (full, atomic)
+      operationId: bulkUpdateWishlistItems
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                allOf:
+                  - type: object
+                    required: [id]
+                    properties:
+                      id:
+                        type: string
+                  - $ref: '#/components/schemas/UpdateWishlistItemRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WishlistItemBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    patch:
+      tags:
+        - WishlistItems
+      summary: Bulk partial-update WishlistItems (atomic)
+      operationId: bulkPatchWishlistItems
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ids, patch]
+                  properties:
+                    ids:
+                      type: array
+                      items: { type: string }
+                    patch:
+                      type: object
+                      additionalProperties: true
+                - type: object
+                  required: [items]
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        type: object
+                        required: [id, patch]
+                        properties:
+                          id: { type: string }
+                          patch: { type: object, additionalProperties: true }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WishlistItemBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/storefront/wishlist_items/upsert:
+    post:
+      tags:
+        - WishlistItems
+      summary: Upsert WishlistItem
+      operationId: upsertWishlistItem
+      parameters:
+        - name: key_field
+          in: query
+          schema:
+            type: string
+        - name: key_value
+          in: query
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWishlistItemRequest'
+      responses:
+        '200':
+          description: Upserted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WishlistItem'
+
+  /api/v1/storefront/wishlist_items/trash:
+    get:
+      tags:
+        - WishlistItems
+      summary: List deleted WishlistItems
+      operationId: listDeletedWishlistItems
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WishlistItemList'
+
+  /api/v1/storefront/wishlist_items/{id}/restore:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    post:
+      tags:
+        - WishlistItems
+      summary: Restore deleted WishlistItem
+      operationId: restoreWishlistItem
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WishlistItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/storefront/wishlist_items/empty:
+    delete:
+      tags:
+        - WishlistItems
+      summary: Empty trash for WishlistItems
+      operationId: emptyTrashWishlistItems
+      responses:
+        '200':
+          description: Trash emptied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted_count:
+                    type: integer
+
+  /api/v1/storefront/wishlist_items/delete/bulk:
+    post:
+      tags:
+        - WishlistItems
+      summary: Bulk soft-delete WishlistItems by ids (atomic)
+      operationId: bulkDeleteWishlistItems
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Soft-deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  soft_deleted: { type: integer }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/storefront/wishlist_items/restore/bulk:
+    post:
+      tags:
+        - WishlistItems
+      summary: Bulk restore WishlistItems by ids (atomic)
+      operationId: bulkRestoreWishlistItems
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WishlistItemBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/storefront/wishlist_items/restore/all:
+    post:
+      tags:
+        - WishlistItems
+      summary: Restore all soft-deleted WishlistItems
+      operationId: restoreAllWishlistItems
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  restored: { type: integer }
+
+  /api/v1/storefront/wishlist_items/trash/bulk:
+    delete:
+      tags:
+        - WishlistItems
+      summary: Bulk permanently-delete WishlistItems from trash by ids (atomic)
+      operationId: bulkPermanentDeleteWishlistItems
       requestBody:
         $ref: '#/components/requestBodies/BatchIds'
       responses:
@@ -3334,6 +4070,7 @@ components:
         - website_id
         - visitor_id
         - state
+        - fulfillment_mode
         - metadata
       properties:
         id:
@@ -3363,6 +4100,13 @@ components:
           nullable: true
           type: string
           format: uuid
+        fulfillment_mode:
+          type: string
+          maxLength: 20
+        pickup_location_id:
+          nullable: true
+          type: string
+          format: uuid
         placed_at:
           nullable: true
           type: string
@@ -3389,6 +4133,7 @@ components:
         - website_id
         - visitor_id
         - state
+        - fulfillment_mode
         - metadata
       properties:
         website_id:
@@ -3412,6 +4157,13 @@ components:
           type: string
           maxLength: 60
         delivery_carrier_id:
+          nullable: true
+          type: string
+          format: uuid
+        fulfillment_mode:
+          type: string
+          maxLength: 20
+        pickup_location_id:
           nullable: true
           type: string
           format: uuid
@@ -3428,6 +4180,7 @@ components:
         - website_id
         - visitor_id
         - state
+        - fulfillment_mode
         - metadata
       properties:
         website_id:
@@ -3451,6 +4204,13 @@ components:
           type: string
           maxLength: 60
         delivery_carrier_id:
+          nullable: true
+          type: string
+          format: uuid
+        fulfillment_mode:
+          type: string
+          maxLength: 20
+        pickup_location_id:
           nullable: true
           type: string
           format: uuid
@@ -3485,6 +4245,13 @@ components:
           type: string
           maxLength: 60
         delivery_carrier_id:
+          nullable: true
+          type: string
+          format: uuid
+        fulfillment_mode:
+          type: string
+          maxLength: 20
+        pickup_location_id:
           nullable: true
           type: string
           format: uuid
@@ -3640,6 +4407,10 @@ components:
           maxLength: 80
         amount_total:
           type: string
+        pickup_location_id:
+          nullable: true
+          type: string
+          format: uuid
         state:
           type: string
         placed_at:
@@ -3699,6 +4470,10 @@ components:
           maxLength: 80
         amount_total:
           type: string
+        pickup_location_id:
+          nullable: true
+          type: string
+          format: uuid
         state:
           type: string
         placed_at:
@@ -3745,6 +4520,10 @@ components:
           maxLength: 80
         amount_total:
           type: string
+        pickup_location_id:
+          nullable: true
+          type: string
+          format: uuid
         state:
           type: string
         placed_at:
@@ -3785,6 +4564,10 @@ components:
           maxLength: 80
         amount_total:
           type: string
+        pickup_location_id:
+          nullable: true
+          type: string
+          format: uuid
         state:
           type: string
         placed_at:
@@ -3808,6 +4591,219 @@ components:
         meta:
           $ref: '#/components/schemas/PaginationMeta'
 
+    PickupLocation:
+      type: object
+      required:
+        - id
+        - website_id
+        - name
+        - country
+        - is_active
+        - metadata
+      properties:
+        id:
+          type: string
+          format: uuid
+        website_id:
+          type: string
+          format: uuid
+        warehouse_id:
+          nullable: true
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 120
+        address_line1:
+          nullable: true
+          type: string
+          maxLength: 200
+        city:
+          nullable: true
+          type: string
+          maxLength: 80
+        postal_code:
+          nullable: true
+          type: string
+          maxLength: 20
+        country:
+          type: string
+          maxLength: 2
+        latitude:
+          nullable: true
+          type: string
+        longitude:
+          nullable: true
+          type: string
+        opening_hours:
+          nullable: true
+          type: object
+        is_active:
+          type: boolean
+        metadata:
+          type: object
+
+    PickupLocationBulkResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PickupLocation'
+        total: { type: integer }
+        failed: { type: integer }
+        errors:
+          type: array
+          items: { type: string }
+
+    CreatePickupLocationRequest:
+      type: object
+      required:
+        - website_id
+        - name
+        - country
+        - is_active
+        - metadata
+      properties:
+        website_id:
+          type: string
+          format: uuid
+        warehouse_id:
+          nullable: true
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 120
+        address_line1:
+          nullable: true
+          type: string
+          maxLength: 200
+        city:
+          nullable: true
+          type: string
+          maxLength: 80
+        postal_code:
+          nullable: true
+          type: string
+          maxLength: 20
+        country:
+          type: string
+          maxLength: 2
+        latitude:
+          nullable: true
+          type: string
+        longitude:
+          nullable: true
+          type: string
+        opening_hours:
+          nullable: true
+          type: object
+        is_active:
+          type: boolean
+        metadata:
+          type: object
+
+    UpdatePickupLocationRequest:
+      type: object
+      required:
+        - website_id
+        - name
+        - country
+        - is_active
+        - metadata
+      properties:
+        website_id:
+          type: string
+          format: uuid
+        warehouse_id:
+          nullable: true
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 120
+        address_line1:
+          nullable: true
+          type: string
+          maxLength: 200
+        city:
+          nullable: true
+          type: string
+          maxLength: 80
+        postal_code:
+          nullable: true
+          type: string
+          maxLength: 20
+        country:
+          type: string
+          maxLength: 2
+        latitude:
+          nullable: true
+          type: string
+        longitude:
+          nullable: true
+          type: string
+        opening_hours:
+          nullable: true
+          type: object
+        is_active:
+          type: boolean
+        metadata:
+          type: object
+
+    PatchPickupLocationRequest:
+      type: object
+      properties:
+        website_id:
+          type: string
+          format: uuid
+        warehouse_id:
+          nullable: true
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 120
+        address_line1:
+          nullable: true
+          type: string
+          maxLength: 200
+        city:
+          nullable: true
+          type: string
+          maxLength: 80
+        postal_code:
+          nullable: true
+          type: string
+          maxLength: 20
+        country:
+          type: string
+          maxLength: 2
+        latitude:
+          nullable: true
+          type: string
+        longitude:
+          nullable: true
+          type: string
+        opening_hours:
+          nullable: true
+          type: object
+        is_active:
+          type: boolean
+        metadata:
+          type: object
+
+    PickupLocationList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PickupLocation'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
     ProductListing:
       type: object
       required:
@@ -3818,6 +4814,7 @@ components:
         - is_published
         - sequence
         - media_urls
+        - allow_backorder
         - metadata
       properties:
         id:
@@ -3838,6 +4835,8 @@ components:
           format: int32
         media_urls:
           type: object
+        allow_backorder:
+          type: boolean
         metadata:
           type: object
 
@@ -3863,6 +4862,7 @@ components:
         - is_published
         - sequence
         - media_urls
+        - allow_backorder
         - metadata
       properties:
         website_id:
@@ -3880,6 +4880,8 @@ components:
           format: int32
         media_urls:
           type: object
+        allow_backorder:
+          type: boolean
         metadata:
           type: object
 
@@ -3892,6 +4894,7 @@ components:
         - is_published
         - sequence
         - media_urls
+        - allow_backorder
         - metadata
       properties:
         website_id:
@@ -3909,6 +4912,8 @@ components:
           format: int32
         media_urls:
           type: object
+        allow_backorder:
+          type: boolean
         metadata:
           type: object
 
@@ -3930,6 +4935,8 @@ components:
           format: int32
         media_urls:
           type: object
+        allow_backorder:
+          type: boolean
         metadata:
           type: object
 
@@ -4464,6 +5471,10 @@ components:
           nullable: true
           type: string
           maxLength: 200
+        display_warehouse_id:
+          nullable: true
+          type: string
+          format: uuid
         metadata:
           type: object
 
@@ -4504,6 +5515,10 @@ components:
           nullable: true
           type: string
           maxLength: 200
+        display_warehouse_id:
+          nullable: true
+          type: string
+          format: uuid
         metadata:
           type: object
 
@@ -4531,6 +5546,10 @@ components:
           nullable: true
           type: string
           maxLength: 200
+        display_warehouse_id:
+          nullable: true
+          type: string
+          format: uuid
         metadata:
           type: object
 
@@ -4553,6 +5572,10 @@ components:
           nullable: true
           type: string
           maxLength: 200
+        display_warehouse_id:
+          nullable: true
+          type: string
+          format: uuid
         metadata:
           type: object
 
@@ -4563,6 +5586,151 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/WebsiteSaleSetting'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    WishlistItem:
+      type: object
+      required:
+        - id
+        - website_id
+        - visitor_id
+        - item_id
+        - notify_on_stock
+        - metadata
+      properties:
+        id:
+          type: string
+          format: uuid
+        website_id:
+          type: string
+          format: uuid
+        visitor_id:
+          type: string
+          format: uuid
+        portal_user_id:
+          nullable: true
+          type: string
+          format: uuid
+        item_id:
+          type: string
+          format: uuid
+        notify_on_stock:
+          type: boolean
+        contact_email:
+          nullable: true
+          type: string
+          maxLength: 200
+        metadata:
+          type: object
+
+    WishlistItemBulkResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/WishlistItem'
+        total: { type: integer }
+        failed: { type: integer }
+        errors:
+          type: array
+          items: { type: string }
+
+    CreateWishlistItemRequest:
+      type: object
+      required:
+        - website_id
+        - visitor_id
+        - item_id
+        - notify_on_stock
+        - metadata
+      properties:
+        website_id:
+          type: string
+          format: uuid
+        visitor_id:
+          type: string
+          format: uuid
+        portal_user_id:
+          nullable: true
+          type: string
+          format: uuid
+        item_id:
+          type: string
+          format: uuid
+        notify_on_stock:
+          type: boolean
+        contact_email:
+          nullable: true
+          type: string
+          maxLength: 200
+        metadata:
+          type: object
+
+    UpdateWishlistItemRequest:
+      type: object
+      required:
+        - website_id
+        - visitor_id
+        - item_id
+        - notify_on_stock
+        - metadata
+      properties:
+        website_id:
+          type: string
+          format: uuid
+        visitor_id:
+          type: string
+          format: uuid
+        portal_user_id:
+          nullable: true
+          type: string
+          format: uuid
+        item_id:
+          type: string
+          format: uuid
+        notify_on_stock:
+          type: boolean
+        contact_email:
+          nullable: true
+          type: string
+          maxLength: 200
+        metadata:
+          type: object
+
+    PatchWishlistItemRequest:
+      type: object
+      properties:
+        website_id:
+          type: string
+          format: uuid
+        visitor_id:
+          type: string
+          format: uuid
+        portal_user_id:
+          nullable: true
+          type: string
+          format: uuid
+        item_id:
+          type: string
+          format: uuid
+        notify_on_stock:
+          type: boolean
+        contact_email:
+          nullable: true
+          type: string
+          maxLength: 200
+        metadata:
+          type: object
+
+    WishlistItemList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/WishlistItem'
         meta:
           $ref: '#/components/schemas/PaginationMeta'
 
