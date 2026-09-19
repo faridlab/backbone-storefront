@@ -1,6 +1,6 @@
 [package]
 name = "backbone-storefront"
-version = "0.2.32"
+version = "0.2.33"
 edition = "2021"
 description = "Server-authoritative eCommerce core — carts as identity-bound drafts (partial-unique open cart per visitor, explicit adoption through portal linkage, the sales order minted only at place under a cart row lock that also guards delivery and billing changes), publish-gated per-website product listings with per-website price rows, checkout that creates the pending gateway transaction inside the lock, settlement-to-confirm riding the gateway's existing seam, abandoned carts as a derived read with an explicit recovery verb, plus the shopper companions: host-composed availability reads with display-vs-checkout scopes and a place-time stock gate, Click & Collect with a server-validated pickup registry and a pay-on-site lane that never auto-confirms an unpaid order, a visitor-backed merge-safe wishlist, a server-capped comparison read, promo reward lines surfaced on every priced read, and back-in-stock demand as an officer-only explicit-send surface (Odoo website_sale + companion port; rendering and the payment UX stay in the webapps)"
 
@@ -17,17 +17,17 @@ path = "src/lib.rs"
 # resolved graph resolves to this one tag).
 # -----------------------------------------------------------------------------
 backbone-auditlog = { git = "https://github.com/faridlab/backbone-auditlog", tag = "v0.1.11" }
-backbone-core = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.23", features = ["postgres"] }
-backbone-orm = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.23" }
-backbone-auth = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.23" }
-backbone-rate-limit = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.23" }
+backbone-core = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.24", features = ["postgres"] }
+backbone-orm = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.24" }
+backbone-auth = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.24" }
+backbone-rate-limit = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.24" }
 # The generated event scaffolding (src/domain/event/*.rs — CrudEvent /
 # CrudEventPublisher imports) does not compile without this crate. The
 # module itself stages NO outbox events, subscribes to NONE (hooks index
 # declares events: {}), owns no outbox table, and the host's
 # outbox_schemas set carries no storefront entry — the same
 # zero-events-with-plumbing-dep posture as the website and blog modules.
-backbone-messaging = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.23" }
+backbone-messaging = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.24" }
 
 # -----------------------------------------------------------------------------
 # Sibling module edges — EXACTLY FOUR, each justified by a NAMED type
