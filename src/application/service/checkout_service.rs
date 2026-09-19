@@ -998,30 +998,45 @@ pub async fn consume_settlement(
         Err(SellingError::NotDraft(_)) => {}
         Err(e) => return Err(map_selling_error(e)),
     }
-    let stamped = sqlx::query(
-        r#"
-        UPDATE storefront.checkout_sessions
-        SET state = 'settled', settled_at = now(),
-            metadata = jsonb_set(metadata, '{updated_at}', to_jsonb(now()))
-        WHERE id = $1 AND state = 'pending_payment'
-          AND (metadata->>'deleted_at') IS NULL
-        "#,
+    // The stamp and its audit ride the same company scope the confirm did.
+    // A webhook carries no session, so nothing binds a scope around this verb,
+    // and the audit lands in the org-fenced trail: unscoped, the trail refuses
+    // the row, the refusal rolls back the stamp, and the provider sees a
+    // retryable failure for a settlement that will never record.
+    let stamped = org_scope::with_org_request_scope(
+        &deps.pool,
+        OrgScope::for_company_unit(company_id),
+        async {
+            let stamped = sqlx::query(
+                r#"
+                UPDATE storefront.checkout_sessions
+                SET state = 'settled', settled_at = now(),
+                    metadata = jsonb_set(metadata, '{updated_at}', to_jsonb(now()))
+                WHERE id = $1 AND state = 'pending_payment'
+                  AND (metadata->>'deleted_at') IS NULL
+                "#,
+            )
+            .bind(checkout.id)
+            .execute(&deps.pool)
+            .await?;
+            if stamped.rows_affected() > 0 {
+                record_audit_on_pool(
+                    &deps.pool,
+                    Some(checkout.website_id),
+                    "checkout_settled_confirmed",
+                    ActorRef::system(),
+                    Some("checkout"),
+                    Some(checkout.id),
+                    None,
+                )
+                .await?;
+            }
+            Ok::<_, StorefrontError>(stamped)
+        },
     )
-    .bind(checkout.id)
-    .execute(&deps.pool)
-    .await?;
-    if stamped.rows_affected() > 0 {
-        record_audit_on_pool(
-            &deps.pool,
-            Some(checkout.website_id),
-            "checkout_settled_confirmed",
-            ActorRef::system(),
-            Some("checkout"),
-            Some(checkout.id),
-            None,
-        )
-        .await?;
-    }
+    .await
+    .map_err(StorefrontError::from)??;
+    let _ = stamped;
     checkout.state = "settled".into();
     checkout.settled_at = Some(chrono::Utc::now());
     Ok(Some(checkout))
