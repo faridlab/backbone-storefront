@@ -324,6 +324,17 @@ pub fn storefront_error_response(err: StorefrontError) -> Response {
             tracing::error!(reason = %msg, "storefront public route internal error");
             json!({"error": "internal error", "code": err.code()})
         }
+        // The stock refusal carries its numbers as fields, not only inside the
+        // sentence. A shopper is told "only N left" by the storefront that
+        // renders this, and parsing that out of a message means re-parsing it
+        // whenever the wording changes.
+        StorefrontError::StockInsufficient { item_id, requested, available } => json!({
+            "error": err.to_string(),
+            "code": err.code(),
+            "item_id": item_id,
+            "requested": requested,
+            "available": available,
+        }),
         other => json!({"error": other.to_string(), "code": err.code()}),
     };
     (status, Json(body)).into_response()
