@@ -428,8 +428,8 @@ dependencies = [
 
 [[package]]
 name = "backbone-portal"
-version = "0.2.14"
-source = "git+https://github.com/faridlab/backbone-portal?tag=v0.2.14#099b965b69007d292246aa29aa10d96204016a3f"
+version = "0.2.15"
+source = "git+https://github.com/faridlab/backbone-portal?tag=v0.2.15#bef350c05b0894e975ea9210f28b465cd920a980"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -562,7 +562,7 @@ dependencies = [
 
 [[package]]
 name = "backbone-storefront"
-version = "0.2.30"
+version = "0.2.31"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -599,8 +599,8 @@ dependencies = [
 
 [[package]]
 name = "backbone-website"
-version = "0.3.15"
-source = "git+https://github.com/faridlab/backbone-website?tag=v0.3.15#681274db2a5f575af8c9df80e1c73162e5a49abf"
+version = "0.3.17"
+source = "git+https://github.com/faridlab/backbone-website?tag=v0.3.17#0f166197c3dbdd37bd214d7bc27f790ee74df234"
 dependencies = [
  "anyhow",
  "async-trait",
