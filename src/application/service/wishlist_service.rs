@@ -26,7 +26,7 @@
 use rust_decimal::Decimal;
 use uuid::Uuid;
 
-use super::audit::{record_audit, ActorRef};
+use super::audit::{record_audit, record_audit_on_pool, ActorRef};
 use super::availability_port::AvailabilityReadPort;
 use super::cart_service;
 use super::catalog_read_port::CatalogReadPort;
@@ -81,7 +81,7 @@ pub async fn add(
     .bind(item_id)
     .fetch_one(pool)
     .await?;
-    record_audit(
+    record_audit_on_pool(
         pool,
         Some(website_id),
         "wishlist_added",
@@ -123,7 +123,7 @@ pub async fn remove(
     if removed.rows_affected() == 0 {
         return Err(StorefrontError::WishlistItemNotFound);
     }
-    record_audit(
+    record_audit_on_pool(
         pool,
         Some(website_id),
         "wishlist_removed",
@@ -187,7 +187,7 @@ pub async fn reconcile(
     .execute(pool)
     .await?
     .rows_affected();
-    record_audit(
+    record_audit_on_pool(
         pool,
         Some(website_id),
         "wishlist_reconciled",
@@ -253,7 +253,7 @@ pub async fn arm_notify(
     if armed == 0 {
         return Err(StorefrontError::WishlistItemNotFound);
     }
-    record_audit(
+    record_audit_on_pool(
         pool,
         Some(website_id),
         "stock_notify_armed",
@@ -483,7 +483,7 @@ pub async fn send_stock_alerts(
         (false, true) => "unwired",
         (false, false) => "none",
     };
-    record_audit(
+    record_audit_on_pool(
         pool,
         Some(website_id),
         "stock_alert_sent",

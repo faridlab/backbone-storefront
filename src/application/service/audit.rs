@@ -7,6 +7,7 @@
 //! officer audit read and the publish-refusal probe both read this
 //! table.
 
+use backbone_orm::org_scope;
 use uuid::Uuid;
 
 use super::storefront_error::StorefrontError;
@@ -77,5 +78,43 @@ pub async fn record_audit(
         },
     )
     .await?;
+    Ok(())
+}
+
+/// Stamp one audit row from a verb that holds a pool rather than a transaction.
+///
+/// The trail is org-fenced, and the fence reads session variables that only
+/// exist on a connection somebody bound them on. A bare `pool` acquire is a
+/// different connection from the one the request's scope was opened on, so the
+/// row it writes carries no unit and the fence refuses it, which rolls back the
+/// business write that triggered the audit. The officer sees an internal error
+/// and nothing saved.
+///
+/// So this opens a short transaction, relays the caller's ambient scope onto
+/// it, and writes there. A transaction is required rather than incidental: the
+/// scope binder sets its variables LOCAL, and outside a transaction they are
+/// gone before the next statement runs.
+///
+/// Outside any request scope (host consumers, bootstraps) nothing is bound and
+/// the write behaves exactly as it did before.
+///
+/// Prefer [`record_audit`] with the mutation's own transaction wherever the verb
+/// has one: only then does the audit row die with the write it describes.
+#[allow(clippy::too_many_arguments)]
+pub async fn record_audit_on_pool(
+    pool: &sqlx::PgPool,
+    website_id: Option<Uuid>,
+    event: &str,
+    actor: ActorRef,
+    subject_type: Option<&str>,
+    subject_id: Option<Uuid>,
+    detail: Option<serde_json::Value>,
+) -> Result<(), StorefrontError> {
+    let mut tx = pool.begin().await?;
+    if let Some(scope) = org_scope::current_org_scope() {
+        org_scope::bind_org_scope_on(&mut tx, &scope).await?;
+    }
+    record_audit(&mut *tx, website_id, event, actor, subject_type, subject_id, detail).await?;
+    tx.commit().await?;
     Ok(())
 }

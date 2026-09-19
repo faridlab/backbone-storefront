@@ -19,7 +19,7 @@
 
 use uuid::Uuid;
 
-use super::audit::{record_audit, ActorRef};
+use super::audit::{record_audit, record_audit_on_pool, ActorRef};
 use super::notifier_port::{RecoveryMessage, RecoveryNotifier};
 use super::pricing_service::settings_for;
 use super::storefront_error::StorefrontError;
@@ -273,7 +273,7 @@ pub async fn send_recovery(
     .bind(&label)
     .execute(pool)
     .await?;
-    record_audit(
+    record_audit_on_pool(
         pool,
         Some(website_id),
         "recovery_sent",

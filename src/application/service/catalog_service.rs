@@ -24,7 +24,9 @@
 use rust_decimal::Decimal;
 use uuid::Uuid;
 
-use super::audit::{record_audit, ActorRef};
+use backbone_orm::org_scope::{self, OrgScope};
+
+use super::audit::{record_audit, record_audit_on_pool, ActorRef};
 use super::catalog_read_port::CatalogReadPort;
 use super::party_write_port::PartyWritePort;
 use super::pricing_service::settings_for;
@@ -444,7 +446,7 @@ pub async fn upsert_listing(
             row.0
         }
     };
-    record_audit(
+    record_audit_on_pool(
         pool,
         Some(website_id),
         "listing_upserted",
@@ -488,7 +490,7 @@ pub async fn set_listing_backorder(
         sqlx::Error::RowNotFound => StorefrontError::NotFound("listing for item".into()),
         other => StorefrontError::Db(other),
     })?;
-    record_audit(
+    record_audit_on_pool(
         pool,
         Some(website_id),
         "listing_backorder_set",
@@ -528,7 +530,7 @@ pub async fn publish_listing(
         // closed-door posture (no existence probe).
         return Err(StorefrontError::NotFound("listing".into()));
     }
-    record_audit(
+    record_audit_on_pool(
         pool,
         Some(website_id),
         "listing_published",
@@ -563,7 +565,7 @@ pub async fn unpublish_listing(
     if stamped.rows_affected() == 0 {
         return Err(StorefrontError::NotFound("listing".into()));
     }
-    record_audit(
+    record_audit_on_pool(
         pool,
         Some(website_id),
         "listing_unpublished",
@@ -648,7 +650,7 @@ pub async fn set_price(
             row.0
         }
     };
-    record_audit(
+    record_audit_on_pool(
         pool,
         Some(website_id),
         "price_set",
@@ -706,6 +708,19 @@ pub async fn set_settings(
         other => StorefrontError::Db(other),
     })?;
     let existing = settings_for(pool, website_id).await?;
+
+    // One transaction for the write and the audit stamp it must be recorded
+    // with, carrying the website's own unit as the scope.
+    //
+    // The stamp is what forces it. The shared audit trail is org-fenced, and
+    // its row takes its unit from the connection's acting unit, so an audit
+    // written on a bare pool connection carries none and the trail refuses it.
+    // The refusal then rolls back the settings write that caused it, so an
+    // officer sees an internal error and nothing saved. Binding the scope here
+    // is what makes the verb complete at all.
+    let mut tx = pool.begin().await?;
+    org_scope::bind_org_scope_on(&mut *tx, &OrgScope::for_company_unit(company_id)).await?;
+
     let settings_id = match existing {
         Some(row) => {
             sqlx::query(
@@ -724,7 +739,7 @@ pub async fn set_settings(
             .bind(patch.default_customer_group_id)
             .bind(&patch.recovery_template_ref)
             .bind(patch.display_warehouse_id)
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
             row.id
         }
@@ -748,13 +763,13 @@ pub async fn set_settings(
             .bind(guest_party_id)
             .bind(&patch.recovery_template_ref)
             .bind(patch.display_warehouse_id)
-            .fetch_one(pool)
+            .fetch_one(&mut *tx)
             .await?;
             row.0
         }
     };
     record_audit(
-        pool,
+        &mut *tx,
         Some(website_id),
         "settings_set",
         actor,
@@ -766,6 +781,7 @@ pub async fn set_settings(
         })),
     )
     .await?;
+    tx.commit().await?;
     Ok(settings_id)
 }
 

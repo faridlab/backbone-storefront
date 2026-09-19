@@ -42,7 +42,7 @@ pub type CartService = GenericCrudService<
     CartRepository,
 >;
 
-use super::audit::{record_audit, ActorRef};
+use super::audit::{record_audit, record_audit_on_pool, ActorRef};
 use super::availability_port::AvailabilityReadPort;
 use super::availability_service;
 use super::catalog_read_port::{CatalogReadPort, ItemSnapshot};
@@ -278,7 +278,7 @@ pub async fn create_cart(
     .await?;
     let created = inserted.is_some();
     if let Some((cart_id,)) = inserted {
-        record_audit(
+        record_audit_on_pool(
             pool,
             Some(website_id),
             "cart_created",
@@ -420,7 +420,7 @@ pub async fn add_line(
     .await?;
     // Touch the cart's updated_at — the abandonment clock rides it.
     touch_cart(pool, cart.id).await?;
-    record_audit(
+    record_audit_on_pool(
         pool,
         Some(cart.website_id),
         "line_added",
@@ -486,7 +486,7 @@ pub async fn set_line_quantity(
     .execute(pool)
     .await?;
     touch_cart(pool, cart.id).await?;
-    record_audit(
+    record_audit_on_pool(
         pool,
         Some(cart.website_id),
         "line_updated",
@@ -523,7 +523,7 @@ pub async fn remove_line(
         return Err(StorefrontError::LineNotFound);
     }
     touch_cart(pool, cart.id).await?;
-    record_audit(
+    record_audit_on_pool(
         pool,
         Some(cart.website_id),
         "line_removed",
@@ -591,7 +591,7 @@ pub async fn apply_coupon(
     .bind(&folded)
     .execute(pool)
     .await?;
-    record_audit(
+    record_audit_on_pool(
         pool,
         Some(cart.website_id),
         "coupon_applied",
@@ -620,7 +620,7 @@ pub async fn remove_coupon(pool: &sqlx::PgPool, cart: &CartRow) -> Result<(), St
     .bind(cart.id)
     .execute(pool)
     .await?;
-    record_audit(
+    record_audit_on_pool(
         pool,
         Some(cart.website_id),
         "coupon_removed",
@@ -826,7 +826,7 @@ pub async fn adopt_cart(
     .execute(pool)
     .await
     .map_err(map_open_cart_race)?;
-    record_audit(
+    record_audit_on_pool(
         pool,
         Some(website_id),
         "cart_adopted",
