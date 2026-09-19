@@ -43,8 +43,8 @@ async fn concurrent_creates_leave_exactly_one_open_cart() {
 
     // The audit row stamps cart_created exactly once (the winner only).
     let audits = sqlx::query_scalar::<_, i64>(
-        "SELECT count(*) FROM storefront.storefront_audit_log \
-         WHERE event = 'cart_created' AND subject_id = $1",
+        "SELECT count(*) FROM auditlog.audit_trails \
+         WHERE action = 'cart_created' AND subject_id = $1::text",
     )
     .bind(*ids.iter().next().unwrap())
     .fetch_one(pool)

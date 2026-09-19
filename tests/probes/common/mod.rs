@@ -285,7 +285,12 @@ async fn apply_sibling_migrations(
     let manifest = env!("CARGO_MANIFEST_DIR");
     let root = std::env::var("STOREFRONT_TEST_MODULES_DIR")
         .unwrap_or_else(|_| format!("{manifest}/.."));
+    // The audit module comes FIRST: this module records its audited facts on
+    // the shared trail, so a scratch database without that schema cannot take a
+    // single write. The failure names the missing enum rather than the missing
+    // module, which is why it is worth stating here.
     let mut siblings = vec![
+        "backbone-auditlog",
         "backbone-website",
         "backbone-selling",
         "backbone-payment-gateway",
@@ -1341,7 +1346,11 @@ pub const CHECKSUMMED_TABLES: &[&str] = &[
     "storefront.website_sale_settings",
     "storefront.shopper_parties",
     "storefront.recovery_invites",
-    "storefront.storefront_audit_log",
+    // The module's own audit table was retired: audited facts go to the shared
+    // trail. The mutating-GET harness still has to prove a GET writes no audit
+    // row, so it checksums this module's slice of that trail rather than a
+    // table that no longer exists.
+    "auditlog.audit_trails",
     "storefront.pickup_locations",
     "storefront.wishlist_items",
     "website.websites",

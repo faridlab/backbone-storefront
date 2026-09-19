@@ -143,8 +143,8 @@ async fn settlement_confirms_once_across_a_redelivered_webhook() {
         "the redelivery reads the settled state"
     );
     let audits = sqlx::query_scalar::<_, i64>(
-        "SELECT count(*) FROM storefront.storefront_audit_log \
-         WHERE event = 'checkout_settled_confirmed' AND subject_id = $1",
+        "SELECT count(*) FROM auditlog.audit_trails \
+         WHERE action = 'checkout_settled_confirmed' AND subject_id = $1::text",
     )
     .bind(checkout_id)
     .fetch_one(pool)

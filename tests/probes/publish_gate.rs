@@ -121,8 +121,8 @@ async fn is_published_is_fenced_out_of_the_upsert() {
 
     // The refusal is audited exactly once.
     let audits = sqlx::query_scalar::<_, i64>(
-        "SELECT count(*) FROM storefront.storefront_audit_log \
-         WHERE event = 'publish_refused' AND subject_id = $1",
+        "SELECT count(*) FROM auditlog.audit_trails \
+         WHERE action = 'publish_refused' AND subject_id = $1::text",
     )
     .bind(item)
     .fetch_one(pool)
@@ -189,8 +189,8 @@ async fn is_published_is_fenced_out_of_the_upsert() {
     .await;
     assert_eq!(status, axum::http::StatusCode::NOT_FOUND);
     let audits = sqlx::query_scalar::<_, i64>(
-        "SELECT count(*) FROM storefront.storefront_audit_log \
-         WHERE event = 'listing_published' AND subject_id = $1",
+        "SELECT count(*) FROM auditlog.audit_trails \
+         WHERE action = 'listing_published' AND subject_id = $1::text",
     )
     .bind(listing_id)
     .fetch_one(pool)

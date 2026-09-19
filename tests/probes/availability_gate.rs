@@ -58,6 +58,12 @@ async fn the_port_is_the_only_oracle_and_it_fails_closed() {
     let (status, json) = post(&probe.public, "/public/cart/lines", Some(&token), &over).await;
     assert_eq!(status, axum::http::StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(json["code"], "storefront_stock_insufficient");
+    // The numbers are FIELDS, not only a sentence: a storefront renders
+    // "only 2 left" from these, and reading it out of the message would
+    // re-break every time the wording changes.
+    assert_eq!(json["item_id"], item.to_string());
+    assert_eq!(json["requested"], "3");
+    assert_eq!(json["available"], "2");
     let fits = format!("{{\"item_id\": \"{item}\", \"quantity\": 2}}");
     let (status, _) = post(&probe.public, "/public/cart/lines", Some(&token), &fits).await;
     assert_eq!(status, axum::http::StatusCode::CREATED);

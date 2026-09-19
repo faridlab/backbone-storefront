@@ -126,8 +126,8 @@ async fn on_site_never_auto_confirms_and_the_officer_settles_exactly_once() {
     assert_eq!(status, axum::http::StatusCode::CONFLICT);
     assert_eq!(json["code"], "storefront_checkout_state_refused");
     let pickups: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM storefront.storefront_audit_log \
-         WHERE event = 'pickup_confirmed' AND subject_id = $1",
+        "SELECT count(*) FROM auditlog.audit_trails \
+         WHERE action = 'pickup_confirmed' AND subject_id = $1::text",
     )
     .bind(checkout_id)
     .fetch_one(&pool)
