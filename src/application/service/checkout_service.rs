@@ -55,7 +55,7 @@ use backbone_selling::application::service::{
     NoStockFulfillmentPort, NoUnitCostPort, SellingError, SellingWriteService,
 };
 
-use super::audit::{begin_scoped, record_audit, ActorRef};
+use super::audit::{begin_scoped, record_audit, record_audit_on_pool, ActorRef};
 use super::availability_port::AvailabilityReadPort;
 use super::availability_service;
 use super::cart_service::{self, CartRow};
@@ -1011,7 +1011,7 @@ pub async fn consume_settlement(
     .execute(&deps.pool)
     .await?;
     if stamped.rows_affected() > 0 {
-        record_audit(
+        record_audit_on_pool(
             &deps.pool,
             Some(checkout.website_id),
             "checkout_settled_confirmed",
@@ -1091,7 +1091,7 @@ pub async fn cancel_checkout(
     .bind(checkout.cart_id)
     .execute(&deps.pool)
     .await?;
-    record_audit(
+    record_audit_on_pool(
         &deps.pool,
         Some(checkout.website_id),
         "cart_cancelled",
@@ -1180,7 +1180,7 @@ pub async fn confirm_pickup(
     .execute(&deps.pool)
     .await?;
     if stamped.rows_affected() > 0 {
-        record_audit(
+        record_audit_on_pool(
             &deps.pool,
             Some(checkout.website_id),
             "pickup_confirmed",
