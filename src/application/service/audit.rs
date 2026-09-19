@@ -118,3 +118,24 @@ pub async fn record_audit_on_pool(
     tx.commit().await?;
     Ok(())
 }
+
+/// Open a transaction that carries the caller's ambient org scope.
+///
+/// Every verb in this module that audits inside its own transaction needs this:
+/// the shared audit trail is org-fenced, and the fence reads session variables
+/// that live on ONE connection. A transaction opened straight off the pool is a
+/// different connection from the one the request's scope was opened on, so the
+/// audit row it writes carries no unit, the fence refuses it, and the refusal
+/// rolls back the business write that triggered the audit.
+///
+/// Outside any request scope (host consumers, bootstraps) nothing is bound and
+/// the transaction behaves exactly as `pool.begin()` did.
+pub async fn begin_scoped(
+    pool: &sqlx::PgPool,
+) -> Result<sqlx::Transaction<'_, sqlx::Postgres>, StorefrontError> {
+    let mut tx = pool.begin().await?;
+    if let Some(scope) = org_scope::current_org_scope() {
+        org_scope::bind_org_scope_on(&mut tx, &scope).await?;
+    }
+    Ok(tx)
+}

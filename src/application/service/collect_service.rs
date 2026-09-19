@@ -27,7 +27,7 @@ use uuid::Uuid;
 
 use backbone_orm::org_scope::{self, OrgScope};
 
-use super::audit::{record_audit, ActorRef};
+use super::audit::{begin_scoped, record_audit, ActorRef};
 use super::storefront_error::StorefrontError;
 
 /// One pickup-location row as the reads see it.
@@ -166,7 +166,7 @@ pub async fn upsert_location(
             "location name must be 1..=120 characters".into(),
         ));
     }
-    let mut tx = pool.begin().await?;
+    let mut tx = begin_scoped(pool).await?;
     // Fence 1: the target website must be live; its company is the
     // write's company (the referential half of the officer-write scope).
     let owner_company: Uuid = sqlx::query_as(

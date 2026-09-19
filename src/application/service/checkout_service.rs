@@ -55,7 +55,7 @@ use backbone_selling::application::service::{
     NoStockFulfillmentPort, NoUnitCostPort, SellingError, SellingWriteService,
 };
 
-use super::audit::{record_audit, ActorRef};
+use super::audit::{begin_scoped, record_audit, ActorRef};
 use super::availability_port::AvailabilityReadPort;
 use super::availability_service;
 use super::cart_service::{self, CartRow};
@@ -308,7 +308,7 @@ pub async fn set_delivery(
     cart_id: Uuid,
     carrier_id: Uuid,
 ) -> Result<CartRow, StorefrontError> {
-    let mut tx = deps.pool.begin().await?;
+    let mut tx = begin_scoped(&deps.pool).await?;
     let cart = lock_cart(&mut tx, cart_id).await?;
     if cart.state != "open" {
         return Err(StorefrontError::CartNotOpen { state: cart.state.clone() });
@@ -371,7 +371,7 @@ pub async fn set_pickup(
     cart_id: Uuid,
     location_id: Uuid,
 ) -> Result<(CartRow, super::collect_service::PickupLocationRow), StorefrontError> {
-    let mut tx = deps.pool.begin().await?;
+    let mut tx = begin_scoped(&deps.pool).await?;
     let cart = lock_cart(&mut tx, cart_id).await?;
     if cart.state != "open" {
         return Err(StorefrontError::CartNotOpen { state: cart.state.clone() });
@@ -420,7 +420,7 @@ pub async fn reset_fulfillment(
     deps: &CheckoutDeps,
     cart_id: Uuid,
 ) -> Result<CartRow, StorefrontError> {
-    let mut tx = deps.pool.begin().await?;
+    let mut tx = begin_scoped(&deps.pool).await?;
     let cart = lock_cart(&mut tx, cart_id).await?;
     if cart.state != "open" {
         return Err(StorefrontError::CartNotOpen { state: cart.state.clone() });
@@ -463,7 +463,7 @@ pub async fn capture_billing(
     email_normalized: &str,
     name: Option<&str>,
 ) -> Result<CartRow, StorefrontError> {
-    let mut tx = deps.pool.begin().await?;
+    let mut tx = begin_scoped(&deps.pool).await?;
     let cart = lock_cart(&mut tx, cart_id).await?;
     if cart.state != "open" {
         return Err(StorefrontError::CartNotOpen { state: cart.state.clone() });
@@ -561,7 +561,7 @@ async fn place_with_lane(
     notes: Option<String>,
     lane: PaymentLane,
 ) -> Result<CheckoutRow, StorefrontError> {
-    let mut tx = deps.pool.begin().await?;
+    let mut tx = begin_scoped(&deps.pool).await?;
     let cart = lock_cart(&mut tx, cart_id).await?;
     if cart.state != "open" {
         // The closed door, not the typed not-open refusal: a racing place
