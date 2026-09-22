@@ -373,16 +373,16 @@ async fn website_of_listing(
 ) -> Result<Uuid, StorefrontError> {
     let guc_pre: String = std::env::var("IGNORED").unwrap_or_default();
     let _ = guc_pre;
-    let row: Option<(Uuid, String, String)> = backbone_orm::company_scope::fetch_optional_scoped(
+    let row: Option<(Option<Uuid>, String, String, String)> = backbone_orm::company_scope::fetch_optional_scoped(
         pool,
         sqlx::query_as("SELECT (SELECT website_id FROM storefront.product_listings WHERE id = $1 LIMIT 1) AS website_id, current_setting('app.scope_unit_ids', true) AS g, current_setting('app.company_id', true) AS c, current_user AS who")
             .bind(listing_id),
     )
     .await
     .map_err(StorefrontError::from)?;
-    let (g, c) = row.as_ref().map(|r: &(Uuid, String, String)| (r.1.clone(), r.2.clone())).unwrap_or_else(|| ("(no row)".into(), "-".into()));
-    tracing::warn!(target: "wol_dbg", listing = %listing_id, scope_guc = %g, company_guc = %c, "website_of_listing debug");
-    row.map(|r| r.0).ok_or(StorefrontError::NotFound("listing".into()))
+    let (g, c, who) = row.as_ref().map(|r| (r.1.clone(), r.2.clone(), r.3.clone())).unwrap_or_else(|| ("(decode fail)".into(), "-".into(), "-".into()));
+    tracing::warn!(target: "wol_dbg", listing = %listing_id, scope_guc = %g, company_guc = %c, db_user = %who, "website_of_listing debug");
+    row.and_then(|r| r.0).ok_or(StorefrontError::NotFound("listing".into()))
 }
 
 async fn listing_publish(
