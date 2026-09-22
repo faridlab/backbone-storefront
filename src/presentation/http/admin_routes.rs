@@ -371,18 +371,23 @@ async fn website_of_listing(
     pool: &sqlx::PgPool,
     listing_id: Uuid,
 ) -> Result<Uuid, StorefrontError> {
-    let guc_pre: String = std::env::var("IGNORED").unwrap_or_default();
-    let _ = guc_pre;
-    let row: Option<(Option<Uuid>, String, String, String)> = backbone_orm::company_scope::fetch_optional_scoped(
-        pool,
-        sqlx::query_as("SELECT (SELECT website_id FROM storefront.product_listings WHERE id = $1 LIMIT 1) AS website_id, current_setting('app.scope_unit_ids', true) AS g, current_setting('app.company_id', true) AS c, current_user AS who")
-            .bind(listing_id),
+    // A self-owned relayed read, NOT the scoped fetch: the admin lane's
+    // request-dedicated connection is captured by the composing guards
+    // bound legacy-company-only, and the org-axis row fence answers any
+    // read that rides it empty. Opening our own transaction and relaying
+    // the ambient scope binds BOTH fence variables on a fresh connection,
+    // immune to whatever the outer guards left behind.
+    let mut tx = pool.begin().await?;
+    crate::infrastructure::persistence::relay_ambient_scope(&mut tx).await?;
+    let row: Option<(Uuid,)> = sqlx::query_as(
+        "SELECT website_id FROM storefront.product_listings WHERE id = $1 LIMIT 1",
     )
+    .bind(listing_id)
+    .fetch_optional(&mut *tx)
     .await
     .map_err(StorefrontError::from)?;
-    let (g, c, who) = row.as_ref().map(|r| (r.1.clone(), r.2.clone(), r.3.clone())).unwrap_or_else(|| ("(decode fail)".into(), "-".into(), "-".into()));
-    tracing::warn!(target: "wol_dbg", listing = %listing_id, scope_guc = %g, company_guc = %c, db_user = %who, "website_of_listing debug");
-    row.and_then(|r| r.0).ok_or(StorefrontError::NotFound("listing".into()))
+    tx.commit().await?;
+    row.map(|r| r.0).ok_or(StorefrontError::NotFound("listing".into()))
 }
 
 async fn listing_publish(
