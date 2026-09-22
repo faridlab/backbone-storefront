@@ -39,20 +39,23 @@ pub fn map_availability_error(e: AvailabilityPortError) -> StorefrontError {
 /// The DISPLAY-scope warehouse for one website: the sale-settings row's
 /// `display_warehouse_id` (NULL = aggregate across warehouses — a
 /// documented, officer-visible semantic, never a hidden fallback).
+/// Read through the scoped fetch lane (the pool callers' read).
 pub async fn display_scope_warehouse(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    pool: &sqlx::PgPool,
     website_id: Uuid,
 ) -> Result<Option<Uuid>, StorefrontError> {
-    let row: Option<(Option<Uuid>,)> = sqlx::query_as(
-        r#"
-        SELECT display_warehouse_id
-        FROM storefront.website_sale_settings
-        WHERE website_id = $1 AND (metadata->>'deleted_at') IS NULL
-        LIMIT 1
-        "#,
+    let row: Option<(Option<Uuid>,)> = backbone_orm::company_scope::fetch_optional_scoped(
+        pool,
+        sqlx::query_as(
+            r#"
+            SELECT display_warehouse_id
+            FROM storefront.website_sale_settings
+            WHERE website_id = $1 AND (metadata->>'deleted_at') IS NULL
+            LIMIT 1
+            "#,
+        )
+        .bind(website_id),
     )
-    .bind(website_id)
-    .fetch_optional(exec)
     .await?;
     Ok(row.and_then(|r| r.0))
 }

@@ -26,12 +26,15 @@
 use rust_decimal::Decimal;
 use uuid::Uuid;
 
+use backbone_orm::company_scope;
+
 use super::audit::{record_audit, record_audit_on_pool, ActorRef};
 use super::availability_port::AvailabilityReadPort;
 use super::cart_service;
 use super::catalog_read_port::CatalogReadPort;
 use super::notifier_port::{StockAlertDelivery, StockAlertNotifier, StockAlertMessage};
 use super::storefront_error::StorefrontError;
+use crate::infrastructure::persistence::relay_ambient_scope;
 
 /// One wish row as the reads see it.
 #[derive(Debug, Clone, sqlx::FromRow)]
@@ -66,6 +69,8 @@ pub async fn add(
     // The same mutation-time gate as the cart's add (closed-door shape:
     // unpublished, off-website, sale_ok=false, inactive, priceless).
     cart_service::gated_listing(pool, catalog, company_id, website_id, item_id).await?;
+    let mut tx = pool.begin().await?;
+    relay_ambient_scope(&mut tx).await?;
     let (id,): (Uuid,) = sqlx::query_as(
         r#"
         INSERT INTO storefront.wishlist_items (website_id, visitor_id, item_id)
@@ -79,8 +84,9 @@ pub async fn add(
     .bind(website_id)
     .bind(visitor_id)
     .bind(item_id)
-    .fetch_one(pool)
+    .fetch_one(&mut *tx)
     .await?;
+    tx.commit().await?;
     record_audit_on_pool(
         pool,
         Some(website_id),
@@ -104,6 +110,8 @@ pub async fn remove(
     principal_user_id: Option<Uuid>,
     item_id: Uuid,
 ) -> Result<(), StorefrontError> {
+    let mut tx = pool.begin().await?;
+    relay_ambient_scope(&mut tx).await?;
     let removed = sqlx::query(
         r#"
         UPDATE storefront.wishlist_items
@@ -118,8 +126,9 @@ pub async fn remove(
     .bind(item_id)
     .bind(visitor_id)
     .bind(principal_user_id)
-    .execute(pool)
+    .execute(&mut *tx)
     .await?;
+    tx.commit().await?;
     if removed.rows_affected() == 0 {
         return Err(StorefrontError::WishlistItemNotFound);
     }
@@ -140,20 +149,22 @@ pub async fn remove(
 /// rows (a row matching both halves appears once — it is one row).
 /// Website-scoped forever; ordered oldest-first for stable rendering.
 pub async fn wishlist_for(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    pool: &sqlx::PgPool,
     website_id: Uuid,
     visitor_id: Uuid,
     principal_user_id: Option<Uuid>,
 ) -> Result<Vec<WishlistRow>, StorefrontError> {
-    sqlx::query_as::<_, WishlistRow>(&format!(
-        "{WISH_SELECT} WHERE website_id = $1 AND (metadata->>'deleted_at') IS NULL \
-         AND (visitor_id = $2 OR portal_user_id = $3) \
-         ORDER BY (metadata->>'created_at') ASC, id ASC"
-    ))
-    .bind(website_id)
-    .bind(visitor_id)
-    .bind(principal_user_id)
-    .fetch_all(exec)
+    company_scope::fetch_all_scoped(
+        pool,
+        sqlx::query_as::<_, WishlistRow>(&format!(
+            "{WISH_SELECT} WHERE website_id = $1 AND (metadata->>'deleted_at') IS NULL \
+             AND (visitor_id = $2 OR portal_user_id = $3) \
+             ORDER BY (metadata->>'created_at') ASC, id ASC"
+        ))
+        .bind(website_id)
+        .bind(visitor_id)
+        .bind(principal_user_id),
+    )
     .await
     .map_err(StorefrontError::from)
 }
@@ -171,6 +182,8 @@ pub async fn reconcile(
     principal_user_id: Uuid,
     principal_email: &str,
 ) -> Result<u64, StorefrontError> {
+    let mut tx = pool.begin().await?;
+    relay_ambient_scope(&mut tx).await?;
     let stamped = sqlx::query(
         r#"
         UPDATE storefront.wishlist_items
@@ -184,9 +197,10 @@ pub async fn reconcile(
     .bind(visitor_id)
     .bind(principal_user_id)
     .bind(principal_email)
-    .execute(pool)
+    .execute(&mut *tx)
     .await?
     .rows_affected();
+    tx.commit().await?;
     record_audit_on_pool(
         pool,
         Some(website_id),
@@ -216,6 +230,8 @@ pub async fn arm_notify(
     item_id: Uuid,
     principal: Option<(Uuid, String)>,
 ) -> Result<(), StorefrontError> {
+    let mut tx = pool.begin().await?;
+    relay_ambient_scope(&mut tx).await?;
     let armed = if let Some((principal_user_id, email)) = principal {
         sqlx::query(
             r#"
@@ -231,7 +247,7 @@ pub async fn arm_notify(
         .bind(item_id)
         .bind(principal_user_id)
         .bind(email)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?
     } else {
         sqlx::query(
@@ -246,10 +262,11 @@ pub async fn arm_notify(
         .bind(website_id)
         .bind(visitor_id)
         .bind(item_id)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?
     }
     .rows_affected();
+    tx.commit().await?;
     if armed == 0 {
         return Err(StorefrontError::WishlistItemNotFound);
     }
@@ -293,28 +310,29 @@ pub async fn stock_wait_read(
     company_id: Uuid,
     website_id: Uuid,
 ) -> Result<Vec<StockWaitItem>, StorefrontError> {
-    let mut conn = pool.acquire().await?;
-    let grouped: Vec<(Uuid, i64, i64)> = sqlx::query_as(
-        r#"
-        SELECT item_id,
-               COUNT(*) AS armed,
-               COUNT(*) FILTER (WHERE contact_email IS NOT NULL) AS with_address
-        FROM storefront.wishlist_items
-        WHERE website_id = $1 AND notify_on_stock = true
-          AND (metadata->>'deleted_at') IS NULL
-        GROUP BY item_id
-        ORDER BY armed DESC, item_id ASC
-        "#,
+    let grouped: Vec<(Uuid, i64, i64)> = company_scope::fetch_all_scoped(
+        pool,
+        sqlx::query_as(
+            r#"
+            SELECT item_id,
+                   COUNT(*) AS armed,
+                   COUNT(*) FILTER (WHERE contact_email IS NOT NULL) AS with_address
+            FROM storefront.wishlist_items
+            WHERE website_id = $1 AND notify_on_stock = true
+              AND (metadata->>'deleted_at') IS NULL
+            GROUP BY item_id
+            ORDER BY armed DESC, item_id ASC
+            "#,
+        )
+        .bind(website_id),
     )
-    .bind(website_id)
-    .fetch_all(&mut *conn)
     .await?;
     if grouped.is_empty() {
         return Ok(Vec::new());
     }
     let ids: Vec<Uuid> = grouped.iter().map(|g| g.0).collect();
     let scope =
-        super::availability_service::display_scope_warehouse(&mut *conn, website_id).await?;
+        super::availability_service::display_scope_warehouse(pool, website_id).await?;
     let answers = availability
         .free_quantities(company_id, &ids, scope)
         .await
@@ -396,40 +414,46 @@ pub async fn send_stock_alerts(
         .ok_or_else(|| {
             StorefrontError::Guarded("the catalog carries no snapshot for this item".into())
         })?;
-    let (website_name,): (String,) = sqlx::query_as(
-        r#"
-        SELECT name FROM website.websites
-        WHERE id = $1 AND (metadata->>'deleted_at') IS NULL
-        "#,
+    let (website_name,): (String,) = company_scope::fetch_one_scoped(
+        pool,
+        sqlx::query_as(
+            r#"
+            SELECT name FROM website.websites
+            WHERE id = $1 AND (metadata->>'deleted_at') IS NULL
+            "#,
+        )
+        .bind(website_id),
     )
-    .bind(website_id)
-    .fetch_one(pool)
     .await?;
-    let rows: Vec<(Uuid, String)> = sqlx::query_as(
-        r#"
-        SELECT id, contact_email
-        FROM storefront.wishlist_items
-        WHERE website_id = $1 AND item_id = $2 AND notify_on_stock = true
-          AND contact_email IS NOT NULL AND contact_email <> ''
-          AND (metadata->>'deleted_at') IS NULL
-        ORDER BY (metadata->>'created_at') ASC
-        "#,
+    let rows: Vec<(Uuid, String)> = company_scope::fetch_all_scoped(
+        pool,
+        sqlx::query_as(
+            r#"
+            SELECT id, contact_email
+            FROM storefront.wishlist_items
+            WHERE website_id = $1 AND item_id = $2 AND notify_on_stock = true
+              AND contact_email IS NOT NULL AND contact_email <> ''
+              AND (metadata->>'deleted_at') IS NULL
+            ORDER BY (metadata->>'created_at') ASC
+            "#,
+        )
+        .bind(website_id)
+        .bind(item_id),
     )
-    .bind(website_id)
-    .bind(item_id)
-    .fetch_all(pool)
     .await?;
-    let armed_total: (i64,) = sqlx::query_as(
-        r#"
-        SELECT COUNT(*)
-        FROM storefront.wishlist_items
-        WHERE website_id = $1 AND item_id = $2 AND notify_on_stock = true
-          AND (metadata->>'deleted_at') IS NULL
-        "#,
+    let armed_total: (i64,) = company_scope::fetch_one_scalar_scoped(
+        pool,
+        sqlx::query_scalar(
+            r#"
+            SELECT COUNT(*)
+            FROM storefront.wishlist_items
+            WHERE website_id = $1 AND item_id = $2 AND notify_on_stock = true
+              AND (metadata->>'deleted_at') IS NULL
+            "#,
+        )
+        .bind(website_id)
+        .bind(item_id),
     )
-    .bind(website_id)
-    .bind(item_id)
-    .fetch_one(pool)
     .await?;
     let mut summary = StockAlertSummary {
         item_id,
@@ -457,6 +481,8 @@ pub async fn send_stock_alerts(
                 }
                 // ACCEPTED (sent or the visible unwired) — the arm
                 // clears; the wait is discharged loudly.
+                let mut tx = pool.begin().await?;
+                relay_ambient_scope(&mut tx).await?;
                 sqlx::query(
                     r#"
                     UPDATE storefront.wishlist_items
@@ -466,8 +492,9 @@ pub async fn send_stock_alerts(
                     "#,
                 )
                 .bind(row_id)
-                .execute(pool)
+                .execute(&mut *tx)
                 .await?;
+                tx.commit().await?;
                 summary.sent += 1;
             }
             Err(_) => {
