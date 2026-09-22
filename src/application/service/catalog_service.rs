@@ -24,13 +24,15 @@
 use rust_decimal::Decimal;
 use uuid::Uuid;
 
+use backbone_orm::company_scope;
 use backbone_orm::org_scope::{self, OrgScope};
 
 use super::audit::{record_audit, record_audit_on_pool, ActorRef};
 use super::catalog_read_port::CatalogReadPort;
 use super::party_write_port::PartyWritePort;
-use super::pricing_service::settings_for;
+use super::pricing_service::settings_for_scoped;
 use super::storefront_error::StorefrontError;
+use crate::infrastructure::persistence::relay_ambient_scope;
 
 /// The page-size bound the listing read enforces (a cheap honest cap —
 /// the read is gate-filtered and catalog-bounded already).
@@ -121,7 +123,7 @@ const GATED_ROWS_SQL: &str = r#"
 /// Unpublished / other-website / `sale_ok=false` / no-live-price rows
 /// are structurally absent — every closed door is the same absence.
 pub async fn public_listings(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    pool: &sqlx::PgPool,
     catalog: &dyn CatalogReadPort,
     company_id: Uuid,
     website_id: Uuid,
@@ -131,11 +133,13 @@ pub async fn public_listings(
     page_size: i64,
 ) -> Result<Vec<PublicListing>, StorefrontError> {
     let rows: Vec<GatedRow> =
-        sqlx::query_as::<_, GatedRow>(GATED_ROWS_SQL)
-            .bind(website_id)
-            .bind(MAX_FETCH_ROWS)
-            .fetch_all(exec)
-            .await?;
+        company_scope::fetch_all_scoped(
+            pool,
+            sqlx::query_as::<_, GatedRow>(GATED_ROWS_SQL)
+                .bind(website_id)
+                .bind(MAX_FETCH_ROWS),
+        )
+        .await?;
     let item_ids: Vec<Uuid> = rows.iter().map(|r| r.item_id).collect();
     let snapshots = catalog
         .item_snapshots(company_id, &item_ids)
@@ -200,30 +204,32 @@ pub async fn public_listings(
 /// other-website, `sale_ok=false`, inactive item, no live price row —
 /// answers the SAME typed 404 (no door-probing oracle).
 pub async fn public_detail(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    pool: &sqlx::PgPool,
     catalog: &dyn CatalogReadPort,
     company_id: Uuid,
     website_id: Uuid,
     item_id: Uuid,
 ) -> Result<PublicListing, StorefrontError> {
-    let row: Option<GatedRow> = sqlx::query_as::<_, GatedRow>(
-        r#"
-        SELECT l.id AS listing_id, l.item_id, l.sequence, l.media_urls,
-               p.list_price, p.compare_at_price, p.currency,
-               (l.metadata->>'created_at')::timestamptz AS created_at
-        FROM storefront.product_listings l
-        JOIN storefront.product_prices p
-          ON p.website_id = l.website_id AND p.item_id = l.item_id
-         AND (p.metadata->>'deleted_at') IS NULL
-        WHERE l.website_id = $1 AND l.item_id = $2
-          AND l.sale_ok = true AND l.is_published = true
-          AND (l.metadata->>'deleted_at') IS NULL
-        LIMIT 1
-        "#,
+    let row: Option<GatedRow> = company_scope::fetch_optional_scoped(
+        pool,
+        sqlx::query_as::<_, GatedRow>(
+            r#"
+            SELECT l.id AS listing_id, l.item_id, l.sequence, l.media_urls,
+                   p.list_price, p.compare_at_price, p.currency,
+                   (l.metadata->>'created_at')::timestamptz AS created_at
+            FROM storefront.product_listings l
+            JOIN storefront.product_prices p
+              ON p.website_id = l.website_id AND p.item_id = l.item_id
+             AND (p.metadata->>'deleted_at') IS NULL
+            WHERE l.website_id = $1 AND l.item_id = $2
+              AND l.sale_ok = true AND l.is_published = true
+              AND (l.metadata->>'deleted_at') IS NULL
+            LIMIT 1
+            "#,
+        )
+        .bind(website_id)
+        .bind(item_id),
     )
-    .bind(website_id)
-    .bind(item_id)
-    .fetch_optional(exec)
     .await?;
     let row = row.ok_or(StorefrontError::PublishGateRefused)?;
     let snapshot = catalog
@@ -261,25 +267,27 @@ pub struct DerivedCategory {
 /// flat ordered group list (a hierarchy lands with a port dimension,
 /// not a stored table).
 pub async fn public_categories(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    pool: &sqlx::PgPool,
     catalog: &dyn CatalogReadPort,
     company_id: Uuid,
     website_id: Uuid,
 ) -> Result<Vec<DerivedCategory>, StorefrontError> {
-    let rows: Vec<(Uuid,)> = sqlx::query_as(
-        r#"
-        SELECT DISTINCT l.item_id
-        FROM storefront.product_listings l
-        JOIN storefront.product_prices p
-          ON p.website_id = l.website_id AND p.item_id = l.item_id
-         AND (p.metadata->>'deleted_at') IS NULL
-        WHERE l.website_id = $1
-          AND l.sale_ok = true AND l.is_published = true
-          AND (l.metadata->>'deleted_at') IS NULL
-        "#,
+    let rows: Vec<(Uuid,)> = company_scope::fetch_all_scoped(
+        pool,
+        sqlx::query_as(
+            r#"
+            SELECT DISTINCT l.item_id
+            FROM storefront.product_listings l
+            JOIN storefront.product_prices p
+              ON p.website_id = l.website_id AND p.item_id = l.item_id
+             AND (p.metadata->>'deleted_at') IS NULL
+            WHERE l.website_id = $1
+              AND l.sale_ok = true AND l.is_published = true
+              AND (l.metadata->>'deleted_at') IS NULL
+            "#,
+        )
+        .bind(website_id),
     )
-    .bind(website_id)
-    .fetch_all(exec)
     .await?;
     let item_ids: Vec<Uuid> = rows.into_iter().map(|r| r.0).collect();
     let snapshots = catalog
@@ -326,26 +334,28 @@ pub struct AdminListingRow {
 /// COMPANY's websites (company scope via the website pairing), each
 /// with its price row when one exists.
 pub async fn admin_listings(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    pool: &sqlx::PgPool,
     company_id: Uuid,
 ) -> Result<Vec<AdminListingRow>, StorefrontError> {
-    sqlx::query_as::<_, AdminListingRow>(
-        r#"
-        SELECT l.id, l.website_id, l.item_id, l.sale_ok, l.is_published,
-               l.sequence, l.media_urls,
-               p.list_price, p.compare_at_price, p.currency
-        FROM storefront.product_listings l
-        JOIN website.websites w
-          ON w.id = l.website_id AND (w.metadata->>'deleted_at') IS NULL
-        LEFT JOIN storefront.product_prices p
-          ON p.website_id = l.website_id AND p.item_id = l.item_id
-         AND (p.metadata->>'deleted_at') IS NULL
-        WHERE w.company_id = $1 AND (l.metadata->>'deleted_at') IS NULL
-        ORDER BY l.website_id, l.sequence, l.id
-        "#,
+    company_scope::fetch_all_scoped(
+        pool,
+        sqlx::query_as::<_, AdminListingRow>(
+            r#"
+            SELECT l.id, l.website_id, l.item_id, l.sale_ok, l.is_published,
+                   l.sequence, l.media_urls,
+                   p.list_price, p.compare_at_price, p.currency
+            FROM storefront.product_listings l
+            JOIN website.websites w
+              ON w.id = l.website_id AND (w.metadata->>'deleted_at') IS NULL
+            LEFT JOIN storefront.product_prices p
+              ON p.website_id = l.website_id AND p.item_id = l.item_id
+             AND (p.metadata->>'deleted_at') IS NULL
+            WHERE w.company_id = $1 AND (l.metadata->>'deleted_at') IS NULL
+            ORDER BY l.website_id, l.sequence, l.id
+            "#,
+        )
+        .bind(company_id),
     )
-    .bind(company_id)
-    .fetch_all(exec)
     .await
     .map_err(StorefrontError::from)
 }
@@ -395,21 +405,25 @@ pub async fn upsert_listing(
     actor: ActorRef,
 ) -> Result<Uuid, StorefrontError> {
     validate_media_urls(&media_urls)?;
-    let existing: Option<(Uuid,)> = sqlx::query_as(
-        r#"
-        SELECT id
-        FROM storefront.product_listings
-        WHERE website_id = $1 AND item_id = $2
-          AND (metadata->>'deleted_at') IS NULL
-        LIMIT 1
-        "#,
+    let existing: Option<(Uuid,)> = company_scope::fetch_optional_scoped(
+        pool,
+        sqlx::query_as(
+            r#"
+            SELECT id
+            FROM storefront.product_listings
+            WHERE website_id = $1 AND item_id = $2
+              AND (metadata->>'deleted_at') IS NULL
+            LIMIT 1
+            "#,
+        )
+        .bind(website_id)
+        .bind(item_id),
     )
-    .bind(website_id)
-    .bind(item_id)
-    .fetch_optional(pool)
     .await?;
     let listing_id = match existing {
         Some((id,)) => {
+            let mut tx = pool.begin().await?;
+            relay_ambient_scope(&mut tx).await?;
             sqlx::query(
                 r#"
                 UPDATE storefront.product_listings
@@ -423,11 +437,14 @@ pub async fn upsert_listing(
             .bind(sale_ok)
             .bind(sequence)
             .bind(&media_urls)
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
+            tx.commit().await?;
             id
         }
         None => {
+            let mut tx = pool.begin().await?;
+            relay_ambient_scope(&mut tx).await?;
             let row: (Uuid,) = sqlx::query_as(
                 r#"
                 INSERT INTO storefront.product_listings
@@ -441,8 +458,9 @@ pub async fn upsert_listing(
             .bind(sale_ok)
             .bind(sequence)
             .bind(&media_urls)
-            .fetch_one(pool)
+            .fetch_one(&mut *tx)
             .await?;
+            tx.commit().await?;
             row.0
         }
     };
@@ -471,6 +489,8 @@ pub async fn set_listing_backorder(
     allow_backorder: bool,
     actor: ActorRef,
 ) -> Result<Uuid, StorefrontError> {
+    let mut tx = pool.begin().await?;
+    relay_ambient_scope(&mut tx).await?;
     let (listing_id,): (Uuid,) = sqlx::query_as(
         r#"
         UPDATE storefront.product_listings
@@ -484,12 +504,13 @@ pub async fn set_listing_backorder(
     .bind(website_id)
     .bind(item_id)
     .bind(allow_backorder)
-    .fetch_one(pool)
+    .fetch_one(&mut *tx)
     .await
     .map_err(|e| match e {
         sqlx::Error::RowNotFound => StorefrontError::NotFound("listing for item".into()),
         other => StorefrontError::Db(other),
     })?;
+    tx.commit().await?;
     record_audit_on_pool(
         pool,
         Some(website_id),
@@ -513,6 +534,8 @@ pub async fn publish_listing(
     listing_id: Uuid,
     actor: ActorRef,
 ) -> Result<(), StorefrontError> {
+    let mut tx = pool.begin().await?;
+    relay_ambient_scope(&mut tx).await?;
     let stamped = sqlx::query(
         r#"
         UPDATE storefront.product_listings
@@ -523,8 +546,9 @@ pub async fn publish_listing(
         "#,
     )
     .bind(listing_id)
-    .execute(pool)
+    .execute(&mut *tx)
     .await?;
+    tx.commit().await?;
     if stamped.rows_affected() == 0 {
         // Missing or already published — the typed 404 keeps the
         // closed-door posture (no existence probe).
@@ -550,6 +574,8 @@ pub async fn unpublish_listing(
     listing_id: Uuid,
     actor: ActorRef,
 ) -> Result<(), StorefrontError> {
+    let mut tx = pool.begin().await?;
+    relay_ambient_scope(&mut tx).await?;
     let stamped = sqlx::query(
         r#"
         UPDATE storefront.product_listings
@@ -560,8 +586,9 @@ pub async fn unpublish_listing(
         "#,
     )
     .bind(listing_id)
-    .execute(pool)
+    .execute(&mut *tx)
     .await?;
+    tx.commit().await?;
     if stamped.rows_affected() == 0 {
         return Err(StorefrontError::NotFound("listing".into()));
     }
@@ -599,21 +626,25 @@ pub async fn set_price(
             "currency must be a 3-letter code".into(),
         ));
     }
-    let existing: Option<(Uuid,)> = sqlx::query_as(
-        r#"
-        SELECT id
-        FROM storefront.product_prices
-        WHERE website_id = $1 AND item_id = $2
-          AND (metadata->>'deleted_at') IS NULL
-        LIMIT 1
-        "#,
+    let existing: Option<(Uuid,)> = company_scope::fetch_optional_scoped(
+        pool,
+        sqlx::query_as(
+            r#"
+            SELECT id
+            FROM storefront.product_prices
+            WHERE website_id = $1 AND item_id = $2
+              AND (metadata->>'deleted_at') IS NULL
+            LIMIT 1
+            "#,
+        )
+        .bind(website_id)
+        .bind(item_id),
     )
-    .bind(website_id)
-    .bind(item_id)
-    .fetch_optional(pool)
     .await?;
     let price_id = match existing {
         Some((id,)) => {
+            let mut tx = pool.begin().await?;
+            relay_ambient_scope(&mut tx).await?;
             sqlx::query(
                 r#"
                 UPDATE storefront.product_prices
@@ -627,11 +658,14 @@ pub async fn set_price(
             .bind(list_price)
             .bind(compare_at_price)
             .bind(&currency)
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
+            tx.commit().await?;
             id
         }
         None => {
+            let mut tx = pool.begin().await?;
+            relay_ambient_scope(&mut tx).await?;
             let row: (Uuid,) = sqlx::query_as(
                 r#"
                 INSERT INTO storefront.product_prices
@@ -645,8 +679,9 @@ pub async fn set_price(
             .bind(list_price)
             .bind(compare_at_price)
             .bind(&currency)
-            .fetch_one(pool)
+            .fetch_one(&mut *tx)
             .await?;
+            tx.commit().await?;
             row.0
         }
     };
@@ -692,7 +727,10 @@ pub async fn set_settings(
             "access_gate must be 'open' or 'members_only'".into(),
         ));
     }
-    // The website's company scopes the party mint.
+    // The website's company scopes the party mint. Deliberately on the
+    // bare pool: this lookup RESOLVES the tenant (the website→company
+    // pairing) that the write's own scope bind below is derived from —
+    // no scope exists to ride yet.
     let (company_id,): (Uuid,) = sqlx::query_as(
         r#"
         SELECT company_id
@@ -707,7 +745,7 @@ pub async fn set_settings(
         sqlx::Error::RowNotFound => StorefrontError::WebsiteNotFound,
         other => StorefrontError::Db(other),
     })?;
-    let existing = settings_for(pool, website_id).await?;
+    let existing = settings_for_scoped(pool, website_id).await?;
 
     // One transaction for the write and the audit stamp it must be recorded
     // with, carrying the website's own unit as the scope.

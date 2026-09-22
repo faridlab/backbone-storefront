@@ -36,6 +36,7 @@ use std::collections::HashMap;
 use rust_decimal::Decimal;
 use uuid::Uuid;
 
+use backbone_orm::company_scope;
 use backbone_selling::application::service::selling_cart_pricing::{
     CartPriceLine, CartPriceRequest, CartPricingPort,
 };
@@ -69,11 +70,11 @@ pub struct SaleSettingsRow {
     pub display_warehouse_id: Option<Uuid>,
 }
 
-/// The website's live sale-settings row, if one exists.
-pub async fn settings_for(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+/// The sale-settings select as one reusable bound query (the executor
+/// form and the scoped pool form share it verbatim).
+fn settings_query(
     website_id: Uuid,
-) -> Result<Option<SaleSettingsRow>, StorefrontError> {
+) -> sqlx::query::QueryAs<'static, sqlx::Postgres, SaleSettingsRow, sqlx::postgres::PgArguments> {
     sqlx::query_as::<_, SaleSettingsRow>(
         r#"
         SELECT id, website_id, access_gate::text AS access_gate,
@@ -85,9 +86,31 @@ pub async fn settings_for(
         "#,
     )
     .bind(website_id)
-    .fetch_optional(exec)
-    .await
-    .map_err(StorefrontError::from)
+}
+
+/// The website's live sale-settings row, if one exists, on a connection
+/// the caller holds (the checkout critical sections read settings inside
+/// their locked transaction).
+pub async fn settings_for(
+    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    website_id: Uuid,
+) -> Result<Option<SaleSettingsRow>, StorefrontError> {
+    settings_query(website_id)
+        .fetch_optional(exec)
+        .await
+        .map_err(StorefrontError::from)
+}
+
+/// The website's live sale-settings row through the scoped fetch lane
+/// (the pool callers' read — same query, fenced to the caller's company
+/// when a scope is bound).
+pub async fn settings_for_scoped(
+    pool: &sqlx::PgPool,
+    website_id: Uuid,
+) -> Result<Option<SaleSettingsRow>, StorefrontError> {
+    company_scope::fetch_optional_scoped(pool, settings_query(website_id))
+        .await
+        .map_err(StorefrontError::from)
 }
 
 /// The members_only gate's read: `true` when the website's settings arm
@@ -95,10 +118,10 @@ pub async fn settings_for(
 /// principal; anonymous pricing reads 401 BEFORE any port call, so a
 /// walled store has no pricing oracle).
 pub async fn members_only(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    pool: &sqlx::PgPool,
     website_id: Uuid,
 ) -> Result<bool, StorefrontError> {
-    Ok(settings_for(exec, website_id)
+    Ok(settings_for_scoped(pool, website_id)
         .await?
         .map(|s| s.access_gate == "members_only")
         .unwrap_or(false))
