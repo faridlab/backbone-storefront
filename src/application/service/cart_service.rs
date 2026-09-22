@@ -27,6 +27,7 @@
 
 use uuid::Uuid;
 
+use backbone_orm::company_scope;
 use backbone_core::GenericCrudService;
 use crate::domain::entity::Cart;
 use crate::infrastructure::persistence::CartRepository;
@@ -48,6 +49,7 @@ use super::availability_service;
 use super::catalog_read_port::{CatalogReadPort, ItemSnapshot};
 use super::party_write_port::PartyWritePort;
 use super::storefront_error::StorefrontError;
+use crate::infrastructure::persistence::relay_ambient_scope;
 
 /// The per-cart line bound's env knob (default 100). Read per call so
 /// probes see a deterministic value without process-global state.
@@ -107,25 +109,27 @@ pub struct CartLineRow {
 /// 401 on miss, never a silent create). The token is the ONLY
 /// client-held secret on the session arm.
 pub async fn visitor_by_token(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    pool: &sqlx::PgPool,
     website_id: Uuid,
     token: &str,
 ) -> Result<Option<Uuid>, StorefrontError> {
     if token.is_empty() {
         return Ok(None);
     }
-    let row: Option<(Uuid,)> = sqlx::query_as(
-        r#"
-        SELECT id
-        FROM website.visitors
-        WHERE access_token = $1 AND website_id = $2
-          AND (metadata->>'deleted_at') IS NULL
-        LIMIT 1
-        "#,
+    let row: Option<(Uuid,)> = company_scope::fetch_optional_scoped(
+        pool,
+        sqlx::query_as(
+            r#"
+            SELECT id
+            FROM website.visitors
+            WHERE access_token = $1 AND website_id = $2
+              AND (metadata->>'deleted_at') IS NULL
+            LIMIT 1
+            "#,
+        )
+        .bind(token)
+        .bind(website_id),
     )
-    .bind(token)
-    .bind(website_id)
-    .fetch_optional(exec)
     .await?;
     Ok(row.map(|r| r.0))
 }
@@ -143,30 +147,34 @@ pub(crate) const CART_SELECT: &str = r#"
 /// arm). Ordered deterministically so even a hypothetical duplicate
 /// reads the same winner on every call.
 pub async fn open_cart_for_visitor(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    pool: &sqlx::PgPool,
     visitor_id: Uuid,
 ) -> Result<Option<CartRow>, StorefrontError> {
-    sqlx::query_as::<_, CartRow>(&format!(
-        "{CART_SELECT} WHERE visitor_id = $1 AND state = 'open' \
-         AND (metadata->>'deleted_at') IS NULL \
-         ORDER BY (metadata->>'updated_at') DESC, id DESC LIMIT 1"
-    ))
-    .bind(visitor_id)
-    .fetch_optional(exec)
+    company_scope::fetch_optional_scoped(
+        pool,
+        sqlx::query_as::<_, CartRow>(&format!(
+            "{CART_SELECT} WHERE visitor_id = $1 AND state = 'open' \
+             AND (metadata->>'deleted_at') IS NULL \
+             ORDER BY (metadata->>'updated_at') DESC, id DESC LIMIT 1"
+        ))
+        .bind(visitor_id),
+    )
     .await
     .map_err(StorefrontError::from)
 }
 
 /// One cart by id (any state) — the ownership checks' read.
 pub async fn cart_by_id(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    pool: &sqlx::PgPool,
     cart_id: Uuid,
 ) -> Result<Option<CartRow>, StorefrontError> {
-    sqlx::query_as::<_, CartRow>(&format!(
-        "{CART_SELECT} WHERE id = $1 AND (metadata->>'deleted_at') IS NULL"
-    ))
-    .bind(cart_id)
-    .fetch_optional(exec)
+    company_scope::fetch_optional_scoped(
+        pool,
+        sqlx::query_as::<_, CartRow>(&format!(
+            "{CART_SELECT} WHERE id = $1 AND (metadata->>'deleted_at') IS NULL"
+        ))
+        .bind(cart_id),
+    )
     .await
     .map_err(StorefrontError::from)
 }
@@ -176,16 +184,18 @@ pub async fn cart_by_id(
 /// `portal_user_id` predicate is the ownership fence (a different
 /// identity's cart is never returned).
 pub async fn most_recent_open_cart_for_principal(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    pool: &sqlx::PgPool,
     portal_user_id: Uuid,
 ) -> Result<Option<CartRow>, StorefrontError> {
-    sqlx::query_as::<_, CartRow>(&format!(
-        "{CART_SELECT} WHERE portal_user_id = $1 AND state = 'open' \
-         AND (metadata->>'deleted_at') IS NULL \
-         ORDER BY (metadata->>'updated_at') DESC, id DESC LIMIT 1"
-    ))
-    .bind(portal_user_id)
-    .fetch_optional(exec)
+    company_scope::fetch_optional_scoped(
+        pool,
+        sqlx::query_as::<_, CartRow>(&format!(
+            "{CART_SELECT} WHERE portal_user_id = $1 AND state = 'open' \
+             AND (metadata->>'deleted_at') IS NULL \
+             ORDER BY (metadata->>'updated_at') DESC, id DESC LIMIT 1"
+        ))
+        .bind(portal_user_id),
+    )
     .await
     .map_err(StorefrontError::from)
 }
@@ -196,41 +206,45 @@ pub async fn most_recent_open_cart_for_principal(
 /// refusal (§7.1(b)'s closed-window proof) instead of a bare 404 that
 /// would hide the closed window.
 pub async fn latest_cart_for_visitor(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    pool: &sqlx::PgPool,
     visitor_id: Uuid,
 ) -> Result<Option<CartRow>, StorefrontError> {
-    sqlx::query_as::<_, CartRow>(&format!(
-        "{CART_SELECT} WHERE visitor_id = $1 \
-         AND (metadata->>'deleted_at') IS NULL \
-         ORDER BY (metadata->>'updated_at') DESC, id DESC LIMIT 1"
-    ))
-    .bind(visitor_id)
-    .fetch_optional(exec)
+    company_scope::fetch_optional_scoped(
+        pool,
+        sqlx::query_as::<_, CartRow>(&format!(
+            "{CART_SELECT} WHERE visitor_id = $1 \
+             AND (metadata->>'deleted_at') IS NULL \
+             ORDER BY (metadata->>'updated_at') DESC, id DESC LIMIT 1"
+        ))
+        .bind(visitor_id),
+    )
     .await
     .map_err(StorefrontError::from)
 }
 
 /// The principal-arm twin of [`latest_cart_for_visitor`].
 pub async fn latest_cart_for_principal(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    pool: &sqlx::PgPool,
     portal_user_id: Uuid,
 ) -> Result<Option<CartRow>, StorefrontError> {
-    sqlx::query_as::<_, CartRow>(&format!(
-        "{CART_SELECT} WHERE portal_user_id = $1 \
-         AND (metadata->>'deleted_at') IS NULL \
-         ORDER BY (metadata->>'updated_at') DESC, id DESC LIMIT 1"
-    ))
-    .bind(portal_user_id)
-    .fetch_optional(exec)
+    company_scope::fetch_optional_scoped(
+        pool,
+        sqlx::query_as::<_, CartRow>(&format!(
+            "{CART_SELECT} WHERE portal_user_id = $1 \
+             AND (metadata->>'deleted_at') IS NULL \
+             ORDER BY (metadata->>'updated_at') DESC, id DESC LIMIT 1"
+        ))
+        .bind(portal_user_id),
+    )
     .await
     .map_err(StorefrontError::from)
 }
 
-/// The cart's lines, ordered by insertion (deterministic reads).
-pub async fn lines_of(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+/// The cart-lines select as one reusable bound query (the executor form
+/// and the scoped pool form share it verbatim).
+fn lines_query(
     cart_id: Uuid,
-) -> Result<Vec<CartLineRow>, StorefrontError> {
+) -> sqlx::query::QueryAs<'static, sqlx::Postgres, CartLineRow, sqlx::postgres::PgArguments> {
     sqlx::query_as::<_, CartLineRow>(
         r#"
         SELECT id, cart_id, item_id, quantity
@@ -240,9 +254,28 @@ pub async fn lines_of(
         "#,
     )
     .bind(cart_id)
-    .fetch_all(exec)
-    .await
-    .map_err(StorefrontError::from)
+}
+
+/// The cart's lines, ordered by insertion (deterministic reads), on a
+/// connection the caller holds (the checkout critical sections read the
+/// lines inside their locked transaction).
+pub async fn lines_of(
+    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    cart_id: Uuid,
+) -> Result<Vec<CartLineRow>, StorefrontError> {
+    lines_query(cart_id).fetch_all(exec).await.map_err(StorefrontError::from)
+}
+
+/// The cart's lines through the scoped fetch lane (the pool callers'
+/// read — same query, fenced to the caller's company when a scope is
+/// bound).
+pub async fn lines_of_scoped(
+    pool: &sqlx::PgPool,
+    cart_id: Uuid,
+) -> Result<Vec<CartLineRow>, StorefrontError> {
+    company_scope::fetch_all_scoped(pool, lines_query(cart_id))
+        .await
+        .map_err(StorefrontError::from)
 }
 
 // ── deterministic create ────────────────────────────────────────────────────
@@ -264,6 +297,8 @@ pub async fn create_cart(
     website_id: Uuid,
     visitor_id: Uuid,
 ) -> Result<CreatedCart, StorefrontError> {
+    let mut tx = pool.begin().await?;
+    relay_ambient_scope(&mut tx).await?;
     let inserted: Option<(Uuid,)> = sqlx::query_as(
         r#"
         INSERT INTO storefront.carts (id, website_id, visitor_id, state)
@@ -274,8 +309,9 @@ pub async fn create_cart(
     )
     .bind(website_id)
     .bind(visitor_id)
-    .fetch_optional(pool)
+    .fetch_optional(&mut *tx)
     .await?;
+    tx.commit().await?;
     let created = inserted.is_some();
     if let Some((cart_id,)) = inserted {
         record_audit_on_pool(
@@ -315,29 +351,31 @@ pub struct GatedListing {
 /// no listing on this website, `sale_ok=false`, inactive or missing
 /// catalog item, no live price row — answers the same typed refusal.
 pub async fn gated_listing(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    pool: &sqlx::PgPool,
     catalog: &dyn CatalogReadPort,
     company_id: Uuid,
     website_id: Uuid,
     item_id: Uuid,
 ) -> Result<GatedListing, StorefrontError> {
     let listing: Option<(Uuid, i32, serde_json::Value, rust_decimal::Decimal, String)> =
-        sqlx::query_as(
-            r#"
-            SELECT l.id, l.sequence, l.media_urls, p.list_price, p.currency
-            FROM storefront.product_listings l
-            JOIN storefront.product_prices p
-              ON p.website_id = l.website_id AND p.item_id = l.item_id
-             AND (p.metadata->>'deleted_at') IS NULL
-            WHERE l.website_id = $1 AND l.item_id = $2
-              AND l.sale_ok = true AND l.is_published = true
-              AND (l.metadata->>'deleted_at') IS NULL
-            LIMIT 1
-            "#,
+        company_scope::fetch_optional_scoped(
+            pool,
+            sqlx::query_as(
+                r#"
+                SELECT l.id, l.sequence, l.media_urls, p.list_price, p.currency
+                FROM storefront.product_listings l
+                JOIN storefront.product_prices p
+                  ON p.website_id = l.website_id AND p.item_id = l.item_id
+                 AND (p.metadata->>'deleted_at') IS NULL
+                WHERE l.website_id = $1 AND l.item_id = $2
+                  AND l.sale_ok = true AND l.is_published = true
+                  AND (l.metadata->>'deleted_at') IS NULL
+                LIMIT 1
+                "#,
+            )
+            .bind(website_id)
+            .bind(item_id),
         )
-        .bind(website_id)
-        .bind(item_id)
-        .fetch_optional(exec)
         .await?;
     let (listing_id, sequence, media_urls, list_price, currency) =
         listing.ok_or(StorefrontError::PublishGateRefused)?;
@@ -383,7 +421,7 @@ pub async fn add_line(
     }
     // The gate first — a closed-door item never touches the cart.
     gated_listing(pool, catalog, company_id, cart.website_id, item_id).await?;
-    let existing = lines_of(pool, cart.id).await?;
+    let existing = lines_of_scoped(pool, cart.id).await?;
     if let Some(line) = existing.iter().find(|l| l.item_id == item_id) {
         // Fold: a repeat item grows its existing line.
         let next = line.quantity + quantity;
@@ -394,10 +432,13 @@ pub async fn add_line(
         return Err(StorefrontError::LineLimitExceeded);
     }
     // The stock clamp on the RESULTING quantity (checkout scope,
-    // computed fresh; a backorder-allowed listing skips it).
-    let mut clamp_conn = pool.acquire().await?;
+    // computed fresh; a backorder-allowed listing skips it). The clamp
+    // reads ride a short relayed transaction so they carry the ambient
+    // org scope (read-only; committed, never rolled into the insert).
+    let mut clamp_tx = pool.begin().await?;
+    relay_ambient_scope(&mut clamp_tx).await?;
     availability_service::clamp_quantity(
-        &mut clamp_conn,
+        &mut *clamp_tx,
         availability,
         company_id,
         cart,
@@ -405,7 +446,9 @@ pub async fn add_line(
         quantity,
     )
     .await?;
-    drop(clamp_conn);
+    clamp_tx.commit().await?;
+    let mut tx = pool.begin().await?;
+    relay_ambient_scope(&mut tx).await?;
     let row: (Uuid,) = sqlx::query_as(
         r#"
         INSERT INTO storefront.cart_lines (id, cart_id, item_id, quantity)
@@ -416,10 +459,14 @@ pub async fn add_line(
     .bind(cart.id)
     .bind(item_id)
     .bind(quantity)
-    .fetch_one(pool)
+    .fetch_one(&mut *tx)
     .await?;
+    tx.commit().await?;
     // Touch the cart's updated_at — the abandonment clock rides it.
-    touch_cart(pool, cart.id).await?;
+    let mut touch_tx = pool.begin().await?;
+    relay_ambient_scope(&mut touch_tx).await?;
+    touch_cart(&mut *touch_tx, cart.id).await?;
+    touch_tx.commit().await?;
     record_audit_on_pool(
         pool,
         Some(cart.website_id),
@@ -452,7 +499,7 @@ pub async fn set_line_quantity(
     if cart.state != "open" {
         return Err(StorefrontError::CartNotOpen { state: cart.state.clone() });
     }
-    let line = lines_of(pool, cart.id)
+    let line = lines_of_scoped(pool, cart.id)
         .await?
         .into_iter()
         .find(|l| l.id == line_id)
@@ -460,10 +507,13 @@ pub async fn set_line_quantity(
     // Mutation-time gate re-check on this line's item.
     gated_listing(pool, catalog, company_id, cart.website_id, line.item_id).await?;
     // The stock clamp on the requested quantity (checkout scope,
-    // computed fresh; a backorder-allowed listing skips it).
-    let mut clamp_conn = pool.acquire().await?;
+    // computed fresh; a backorder-allowed listing skips it). The clamp
+    // reads ride a short relayed transaction so they carry the ambient
+    // org scope (read-only; committed, never rolled into the update).
+    let mut clamp_tx = pool.begin().await?;
+    relay_ambient_scope(&mut clamp_tx).await?;
     availability_service::clamp_quantity(
-        &mut clamp_conn,
+        &mut *clamp_tx,
         availability,
         company_id,
         cart,
@@ -471,7 +521,9 @@ pub async fn set_line_quantity(
         quantity,
     )
     .await?;
-    drop(clamp_conn);
+    clamp_tx.commit().await?;
+    let mut tx = pool.begin().await?;
+    relay_ambient_scope(&mut tx).await?;
     sqlx::query(
         r#"
         UPDATE storefront.cart_lines
@@ -483,9 +535,13 @@ pub async fn set_line_quantity(
     .bind(line_id)
     .bind(cart.id)
     .bind(quantity)
-    .execute(pool)
+    .execute(&mut *tx)
     .await?;
-    touch_cart(pool, cart.id).await?;
+    tx.commit().await?;
+    let mut touch_tx = pool.begin().await?;
+    relay_ambient_scope(&mut touch_tx).await?;
+    touch_cart(&mut *touch_tx, cart.id).await?;
+    touch_tx.commit().await?;
     record_audit_on_pool(
         pool,
         Some(cart.website_id),
@@ -508,6 +564,8 @@ pub async fn remove_line(
     if cart.state != "open" {
         return Err(StorefrontError::CartNotOpen { state: cart.state.clone() });
     }
+    let mut tx = pool.begin().await?;
+    relay_ambient_scope(&mut tx).await?;
     let outcome = sqlx::query(
         r#"
         UPDATE storefront.cart_lines
@@ -517,12 +575,16 @@ pub async fn remove_line(
     )
     .bind(line_id)
     .bind(cart.id)
-    .execute(pool)
+    .execute(&mut *tx)
     .await?;
+    tx.commit().await?;
     if outcome.rows_affected() == 0 {
         return Err(StorefrontError::LineNotFound);
     }
-    touch_cart(pool, cart.id).await?;
+    let mut touch_tx = pool.begin().await?;
+    relay_ambient_scope(&mut touch_tx).await?;
+    touch_cart(&mut *touch_tx, cart.id).await?;
+    touch_tx.commit().await?;
     record_audit_on_pool(
         pool,
         Some(cart.website_id),
@@ -579,6 +641,8 @@ pub async fn apply_coupon(
     if !folded.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
         return Err(StorefrontError::CouponRefused);
     }
+    let mut tx = pool.begin().await?;
+    relay_ambient_scope(&mut tx).await?;
     sqlx::query(
         r#"
         UPDATE storefront.carts
@@ -589,8 +653,9 @@ pub async fn apply_coupon(
     )
     .bind(cart.id)
     .bind(&folded)
-    .execute(pool)
+    .execute(&mut *tx)
     .await?;
+    tx.commit().await?;
     record_audit_on_pool(
         pool,
         Some(cart.website_id),
@@ -609,6 +674,8 @@ pub async fn remove_coupon(pool: &sqlx::PgPool, cart: &CartRow) -> Result<(), St
     if cart.state != "open" {
         return Err(StorefrontError::CartNotOpen { state: cart.state.clone() });
     }
+    let mut tx = pool.begin().await?;
+    relay_ambient_scope(&mut tx).await?;
     sqlx::query(
         r#"
         UPDATE storefront.carts
@@ -618,8 +685,9 @@ pub async fn remove_coupon(pool: &sqlx::PgPool, cart: &CartRow) -> Result<(), St
         "#,
     )
     .bind(cart.id)
-    .execute(pool)
+    .execute(&mut *tx)
     .await?;
+    tx.commit().await?;
     record_audit_on_pool(
         pool,
         Some(cart.website_id),
@@ -812,6 +880,8 @@ pub async fn adopt_cart(
             return Err(StorefrontError::OpenCartExists);
         }
     }
+    let mut tx = pool.begin().await?;
+    relay_ambient_scope(&mut tx).await?;
     sqlx::query(
         r#"
         UPDATE storefront.carts
@@ -823,9 +893,10 @@ pub async fn adopt_cart(
     .bind(cart_id)
     .bind(visitor_id)
     .bind(portal_user_id)
-    .execute(pool)
+    .execute(&mut *tx)
     .await
     .map_err(map_open_cart_race)?;
+    tx.commit().await?;
     record_audit_on_pool(
         pool,
         Some(website_id),
@@ -873,6 +944,8 @@ pub async fn recover_cart(
             return Err(StorefrontError::OpenCartExists);
         }
     }
+    let mut tx = pool.begin().await?;
+    relay_ambient_scope(&mut tx).await?;
     sqlx::query(
         r#"
         UPDATE storefront.carts
@@ -883,9 +956,10 @@ pub async fn recover_cart(
     )
     .bind(cart_id)
     .bind(visitor_id)
-    .execute(pool)
+    .execute(&mut *tx)
     .await
     .map_err(map_open_cart_race)?;
+    tx.commit().await?;
     cart_by_id(pool, cart_id)
         .await?
         .ok_or(StorefrontError::Internal("recovered cart vanished".into()))
