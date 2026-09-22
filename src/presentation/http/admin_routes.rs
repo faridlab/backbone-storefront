@@ -375,7 +375,7 @@ async fn website_of_listing(
     let _ = guc_pre;
     let row: Option<(Uuid, String, String)> = backbone_orm::company_scope::fetch_optional_scoped(
         pool,
-        sqlx::query_as("SELECT website_id, current_setting('app.scope_unit_ids', true) AS g, current_setting('app.company_id', true) AS c FROM storefront.product_listings WHERE id = $1 LIMIT 1")
+        sqlx::query_as("SELECT (SELECT website_id FROM storefront.product_listings WHERE id = $1 LIMIT 1) AS website_id, current_setting('app.scope_unit_ids', true) AS g, current_setting('app.company_id', true) AS c, current_user AS who")
             .bind(listing_id),
     )
     .await

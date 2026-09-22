@@ -566,7 +566,7 @@ dependencies = [
 
 [[package]]
 name = "backbone-storefront"
-version = "0.2.43"
+version = "0.2.44"
 dependencies = [
  "anyhow",
  "async-trait",
