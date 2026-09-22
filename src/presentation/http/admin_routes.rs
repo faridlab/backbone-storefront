@@ -365,17 +365,19 @@ async fn listings_upsert(
     }
 }
 
-/// The listing row's website (the publish verbs' audit scope).
+/// The listing row's website (the publish verbs' audit scope), read
+/// through the scoped fetch lane.
 async fn website_of_listing(
     pool: &sqlx::PgPool,
     listing_id: Uuid,
 ) -> Result<Uuid, StorefrontError> {
-    let row: Option<(Uuid,)> =
+    let row: Option<(Uuid,)> = backbone_orm::company_scope::fetch_optional_scoped(
+        pool,
         sqlx::query_as("SELECT website_id FROM storefront.product_listings WHERE id = $1 LIMIT 1")
-            .bind(listing_id)
-            .fetch_optional(pool)
-            .await
-            .map_err(StorefrontError::from)?;
+            .bind(listing_id),
+    )
+    .await
+    .map_err(StorefrontError::from)?;
     row.map(|r| r.0).ok_or(StorefrontError::NotFound("listing".into()))
 }
 

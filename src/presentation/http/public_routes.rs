@@ -497,16 +497,22 @@ async fn price_view(
     company_id: Uuid,
     cart: &CartRow,
 ) -> Result<PricedCartView, Response> {
-    let lines = match cart_service::lines_of(&state.pool, cart.id).await {
+    let lines = match cart_service::lines_of_scoped(&state.pool, cart.id).await {
         Ok(l) => l,
         Err(e) => return Err(storefront_error_response(e)),
     };
-    let mut conn = match state.pool.acquire().await {
-        Ok(c) => c,
+    // The derivation's reads ride a short relayed transaction (read-only,
+    // committed) so they carry the ambient org scope — same discipline as
+    // the mutation verbs' clamp reads.
+    let mut read_tx = match state.pool.begin().await {
+        Ok(t) => t,
         Err(e) => return Err(storefront_error_response(StorefrontError::Db(e))),
     };
+    if let Err(e) = crate::infrastructure::persistence::relay_ambient_scope(&mut read_tx).await {
+        return Err(storefront_error_response(StorefrontError::Db(e)));
+    }
     match pricing_service::price_cart(
-        &mut conn,
+        &mut *read_tx,
         state.catalog.as_ref(),
         state.party.as_ref(),
         state.pricing.as_ref(),
@@ -516,7 +522,12 @@ async fn price_view(
     )
     .await
     {
-        Ok(view) => Ok(view),
+        Ok(view) => {
+            if let Err(e) = read_tx.commit().await {
+                return Err(storefront_error_response(StorefrontError::Db(e)));
+            }
+            Ok(view)
+        }
         Err(e) => Err(storefront_error_response(e)),
     }
 }
