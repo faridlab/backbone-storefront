@@ -548,6 +548,12 @@ pub async fn publish_listing(
     .bind(listing_id)
     .execute(&mut *tx)
     .await?;
+    let scope_dbg = backbone_orm::org_scope::current_org_scope()
+        .map(|s| (s.scope_unit_ids().len(), s.acting_unit_id().to_string()))
+        .unwrap_or_else(|| (0usize, "none".to_string()));
+    let guc: Result<String, sqlx::Error> = sqlx::query_scalar("SELECT current_setting('app.scope_unit_ids', true)")
+        .fetch_one(&mut *tx).await;
+    tracing::warn!(target: "publish_dbg", listing = %listing_id, scope_len = scope_dbg.0, acting = %scope_dbg.1, guc = ?guc, rows = stamped.rows_affected(), "publish scope debug");
     tx.commit().await?;
     if stamped.rows_affected() == 0 {
         // Missing or already published — the typed 404 keeps the
@@ -588,6 +594,12 @@ pub async fn unpublish_listing(
     .bind(listing_id)
     .execute(&mut *tx)
     .await?;
+    let scope_dbg = backbone_orm::org_scope::current_org_scope()
+        .map(|s| (s.scope_unit_ids().len(), s.acting_unit_id().to_string()))
+        .unwrap_or_else(|| (0usize, "none".to_string()));
+    let guc: Result<String, sqlx::Error> = sqlx::query_scalar("SELECT current_setting('app.scope_unit_ids', true)")
+        .fetch_one(&mut *tx).await;
+    tracing::warn!(target: "publish_dbg", listing = %listing_id, scope_len = scope_dbg.0, acting = %scope_dbg.1, guc = ?guc, rows = stamped.rows_affected(), "publish scope debug");
     tx.commit().await?;
     if stamped.rows_affected() == 0 {
         return Err(StorefrontError::NotFound("listing".into()));
