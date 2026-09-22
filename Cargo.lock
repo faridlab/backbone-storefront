@@ -566,7 +566,7 @@ dependencies = [
 
 [[package]]
 name = "backbone-storefront"
-version = "0.2.39"
+version = "0.2.41"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -603,8 +603,8 @@ dependencies = [
 
 [[package]]
 name = "backbone-website"
-version = "0.3.20"
-source = "git+https://github.com/faridlab/backbone-website?tag=v0.3.20#cb420ba79770f6103d0535bfc04cf1a464c7f7ef"
+version = "0.3.21"
+source = "git+https://github.com/faridlab/backbone-website?tag=v0.3.21#39365818450ad2067a4418e73e514840a30a121e"
 dependencies = [
  "anyhow",
  "async-trait",
