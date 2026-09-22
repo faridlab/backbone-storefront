@@ -19,10 +19,13 @@
 
 use uuid::Uuid;
 
+use backbone_orm::company_scope;
+
 use super::audit::{record_audit, record_audit_on_pool, ActorRef};
 use super::notifier_port::{RecoveryMessage, RecoveryNotifier};
-use super::pricing_service::settings_for;
+use super::pricing_service::settings_for_scoped;
 use super::storefront_error::StorefrontError;
+use crate::infrastructure::persistence::relay_ambient_scope;
 
 /// The abandonment window's env knob (default 1 hour) — the ONE delay
 /// constant (§8.2), declared in BOTH env templates.
@@ -61,7 +64,7 @@ const ABANDONED_ORDER: &str =
     " ORDER BY (c.metadata->>'updated_at') DESC, c.id DESC ";
 
 async fn abandoned_carts_where(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    pool: &sqlx::PgPool,
     where_sql: &str,
     binds: Vec<uuid::Uuid>,
     hours: i64,
@@ -92,18 +95,20 @@ async fn abandoned_carts_where(
     for b in &binds {
         q = q.bind(b);
     }
-    q.bind(hours).fetch_all(exec).await.map_err(StorefrontError::from)
+    company_scope::fetch_all_scoped(pool, q.bind(hours))
+        .await
+        .map_err(StorefrontError::from)
 }
 
 /// The company's derived abandoned carts (the officer read, computed
 /// fresh; company scope via the website pairing).
 pub async fn abandoned_carts_for_company(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    pool: &sqlx::PgPool,
     company_id: Uuid,
     hours: i64,
 ) -> Result<Vec<AbandonedCartRow>, StorefrontError> {
     abandoned_carts_where(
-        exec,
+        pool,
         "EXISTS (SELECT 1 FROM website.websites w \
           WHERE w.id = c.website_id AND w.company_id = $1 \
             AND (w.metadata->>'deleted_at') IS NULL)",
@@ -118,21 +123,21 @@ pub async fn abandoned_carts_for_company(
 /// principal linkage; another identity's carts are structurally
 /// absent).
 pub async fn abandoned_carts_for_identity(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    pool: &sqlx::PgPool,
     visitor_id: Uuid,
     portal_user_id: Option<Uuid>,
     hours: i64,
 ) -> Result<Vec<AbandonedCartRow>, StorefrontError> {
     match portal_user_id {
         Some(pid) => abandoned_carts_where(
-            exec,
+            pool,
             "(c.visitor_id = $1 OR c.portal_user_id = $2)",
             vec![visitor_id, pid],
             hours,
         )
         .await,
         None => {
-            abandoned_carts_where(exec, "c.visitor_id = $1", vec![visitor_id], hours).await
+            abandoned_carts_where(pool, "c.visitor_id = $1", vec![visitor_id], hours).await
         }
     }
 }
@@ -140,24 +145,26 @@ pub async fn abandoned_carts_for_identity(
 /// Fresh eligibility for ONE cart (the send verb's own gate — never
 /// derived from a stored flag): open, live, past the window.
 pub async fn cart_is_abandoned(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    pool: &sqlx::PgPool,
     cart_id: Uuid,
     hours: i64,
 ) -> Result<bool, StorefrontError> {
-    let row: Option<(i64,)> = sqlx::query_as(
-        r#"
-        SELECT 1::int8
-        FROM storefront.carts c
-        WHERE c.id = $1 AND c.state = 'open'
-          AND (c.metadata->>'deleted_at') IS NULL
-          AND (c.metadata->>'updated_at')::timestamptz
-                < now() - make_interval(hours => $2::int)
-        LIMIT 1
-        "#,
+    let row: Option<(i64,)> = company_scope::fetch_optional_scoped(
+        pool,
+        sqlx::query_as(
+            r#"
+            SELECT 1::int8
+            FROM storefront.carts c
+            WHERE c.id = $1 AND c.state = 'open'
+              AND (c.metadata->>'deleted_at') IS NULL
+              AND (c.metadata->>'updated_at')::timestamptz
+                    < now() - make_interval(hours => $2::int)
+            LIMIT 1
+            "#,
+        )
+        .bind(cart_id)
+        .bind(hours),
     )
-    .bind(cart_id)
-    .bind(hours)
-    .fetch_optional(exec)
     .await?;
     Ok(row.is_some())
 }
@@ -179,22 +186,24 @@ pub async fn send_recovery(
             "cart does not satisfy the abandonment window".into(),
         ));
     }
-    let cart: Option<(Uuid, Option<Uuid>)> = sqlx::query_as(
-        r#"
-        SELECT c.website_id, c.party_id
-        FROM storefront.carts c
-        WHERE c.id = $1 AND (c.metadata->>'deleted_at') IS NULL
-        LIMIT 1
-        "#,
+    let cart: Option<(Uuid, Option<Uuid>)> = company_scope::fetch_optional_scoped(
+        pool,
+        sqlx::query_as(
+            r#"
+            SELECT c.website_id, c.party_id
+            FROM storefront.carts c
+            WHERE c.id = $1 AND (c.metadata->>'deleted_at') IS NULL
+            LIMIT 1
+            "#,
+        )
+        .bind(cart_id),
     )
-    .bind(cart_id)
-    .fetch_optional(pool)
     .await?;
     let Some((website_id, party_id)) = cart else {
         return Err(StorefrontError::CartNotFound);
     };
     // (1) The template: the website's own row, no fallback exists.
-    let settings = settings_for(pool, website_id)
+    let settings = settings_for_scoped(pool, website_id)
         .await?
         .ok_or(StorefrontError::SettingsNotFound)?;
     let template_ref = settings
@@ -208,30 +217,34 @@ pub async fn send_recovery(
     let Some(party_id) = party_id else {
         return Err(StorefrontError::NoContactAddress);
     };
-    let address: Option<(String,)> = sqlx::query_as(
-        r#"
-        SELECT sp.email_normalized
-        FROM storefront.shopper_parties sp
-        WHERE sp.party_id = $1 AND (sp.metadata->>'deleted_at') IS NULL
-        ORDER BY (sp.metadata->>'created_at') DESC NULLS LAST, sp.id ASC
-        LIMIT 1
-        "#,
+    let address: Option<(String,)> = company_scope::fetch_optional_scoped(
+        pool,
+        sqlx::query_as(
+            r#"
+            SELECT sp.email_normalized
+            FROM storefront.shopper_parties sp
+            WHERE sp.party_id = $1 AND (sp.metadata->>'deleted_at') IS NULL
+            ORDER BY (sp.metadata->>'created_at') DESC NULLS LAST, sp.id ASC
+            LIMIT 1
+            "#,
+        )
+        .bind(party_id),
     )
-    .bind(party_id)
-    .fetch_optional(pool)
     .await?;
     let Some((to_address,)) = address else {
         return Err(StorefrontError::NoContactAddress);
     };
     // (3) The website's display name (the message's sender context).
-    let (website_name,): (String,) = sqlx::query_as(
-        r#"
-        SELECT name FROM website.websites
-        WHERE id = $1 AND (metadata->>'deleted_at') IS NULL
-        "#,
+    let (website_name,): (String,) = company_scope::fetch_one_scoped(
+        pool,
+        sqlx::query_as(
+            r#"
+            SELECT name FROM website.websites
+            WHERE id = $1 AND (metadata->>'deleted_at') IS NULL
+            "#,
+        )
+        .bind(website_id),
     )
-    .bind(website_id)
-    .fetch_one(pool)
     .await
     .map_err(|e| match e {
         sqlx::Error::RowNotFound => StorefrontError::WebsiteNotFound,
@@ -261,6 +274,8 @@ pub async fn send_recovery(
     };
     // (5) The audit-stamp row (notified_at is a stamp, NEVER an
     // eligibility input) + the audit event.
+    let mut tx = pool.begin().await?;
+    relay_ambient_scope(&mut tx).await?;
     sqlx::query(
         r#"
         INSERT INTO storefront.recovery_invites
@@ -271,8 +286,9 @@ pub async fn send_recovery(
     .bind(cart_id)
     .bind(&template_ref)
     .bind(&label)
-    .execute(pool)
+    .execute(&mut *tx)
     .await?;
+    tx.commit().await?;
     record_audit_on_pool(
         pool,
         Some(website_id),
