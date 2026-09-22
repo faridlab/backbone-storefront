@@ -44,7 +44,7 @@ use crate::application::service::collect_service::{self, LocationPatch};
 use crate::application::service::notifier_port::{
     RecoveryNotifier, StockAlertNotifier, UnwiredRecoveryNotifier, UnwiredStockAlertNotifier,
 };
-use crate::application::service::pricing_service::settings_for;
+use crate::application::service::pricing_service::settings_for_scoped;
 use crate::application::service::recovery_service;
 use crate::application::service::storefront_error::StorefrontError;
 use crate::application::service::wishlist_service;
@@ -479,7 +479,7 @@ async fn settings_read(
     State(state): State<StorefrontAdminState>,
     Path(path): Path<WebsitePath>,
 ) -> Response {
-    match settings_for(&state.pool, path.website_id).await {
+    match settings_for_scoped(&state.pool, path.website_id).await {
         Ok(Some(row)) => (
             axum::http::StatusCode::OK,
             Json(json!({
@@ -713,6 +713,10 @@ async fn stock_wait_read_route(
     State(state): State<StorefrontAdminState>,
     Query(q): Query<WebsiteQuery>,
 ) -> Response {
+    // The website→company pairing read is deliberately on the bare
+    // pool: it RESOLVES the tenant the port reads below need — no
+    // scope exists to ride yet (the checkout verbs keep the same
+    // posture for their pairing reads).
     let (company_id,): (Uuid,) = match sqlx::query_as(
         r#"
         SELECT company_id FROM website.websites
@@ -763,6 +767,10 @@ async fn stock_alert_send(
     Path(item_id): Path<Uuid>,
     Json(body): Json<StockSendBody>,
 ) -> Response {
+    // The website→company pairing read is deliberately on the bare
+    // pool: it RESOLVES the tenant the port reads below need — no
+    // scope exists to ride yet (the checkout verbs keep the same
+    // posture for their pairing reads).
     let (company_id,): (Uuid,) = match sqlx::query_as(
         r#"
         SELECT company_id FROM website.websites
