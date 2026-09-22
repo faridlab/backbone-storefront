@@ -25,6 +25,7 @@
 
 use uuid::Uuid;
 
+use backbone_orm::company_scope;
 use backbone_orm::org_scope::{self, OrgScope};
 
 use super::audit::{begin_scoped, record_audit, ActorRef};
@@ -70,41 +71,48 @@ pub struct LocationPatch {
 }
 
 /// The website's locations — the OFFICER read (all states; the registry
-/// management view).
+/// management view), through the scoped fetch lane.
 pub async fn locations_for_website(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    pool: &sqlx::PgPool,
     website_id: Uuid,
 ) -> Result<Vec<PickupLocationRow>, StorefrontError> {
-    sqlx::query_as::<_, PickupLocationRow>(&format!(
-        "{LOCATION_SELECT} WHERE website_id = $1 AND (metadata->>'deleted_at') IS NULL \
-         ORDER BY (metadata->>'created_at') ASC, id ASC"
-    ))
-    .bind(website_id)
-    .fetch_all(exec)
+    company_scope::fetch_all_scoped(
+        pool,
+        sqlx::query_as::<_, PickupLocationRow>(&format!(
+            "{LOCATION_SELECT} WHERE website_id = $1 AND (metadata->>'deleted_at') IS NULL \
+             ORDER BY (metadata->>'created_at') ASC, id ASC"
+        ))
+        .bind(website_id),
+    )
     .await
     .map_err(StorefrontError::from)
 }
 
 /// The website's ACTIVE locations — the PUBLIC lookup read (inactive
-/// and foreign-website stores are indistinguishable from missing).
+/// and foreign-website stores are indistinguishable from missing),
+/// through the scoped fetch lane.
 pub async fn active_locations_for_website(
-    exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
+    pool: &sqlx::PgPool,
     website_id: Uuid,
 ) -> Result<Vec<PickupLocationRow>, StorefrontError> {
-    sqlx::query_as::<_, PickupLocationRow>(&format!(
-        "{LOCATION_SELECT} WHERE website_id = $1 AND is_active = true \
-         AND (metadata->>'deleted_at') IS NULL \
-         ORDER BY (metadata->>'created_at') ASC, id ASC"
-    ))
-    .bind(website_id)
-    .fetch_all(exec)
+    company_scope::fetch_all_scoped(
+        pool,
+        sqlx::query_as::<_, PickupLocationRow>(&format!(
+            "{LOCATION_SELECT} WHERE website_id = $1 AND is_active = true \
+             AND (metadata->>'deleted_at') IS NULL \
+             ORDER BY (metadata->>'created_at') ASC, id ASC"
+        ))
+        .bind(website_id),
+    )
     .await
     .map_err(StorefrontError::from)
 }
 
 /// One ACTIVE location on the website — the pin verb's server-side
 /// resolution (the closed-door 404 when the store is missing, inactive,
-/// or another website's).
+/// or another website's). Executor-generic on purpose: the pin verb
+/// reads it INSIDE the checkout critical section's relayed lock
+/// transaction, so this one deliberately takes the caller's connection.
 pub async fn active_location_on_website(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
     website_id: Uuid,
