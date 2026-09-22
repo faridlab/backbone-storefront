@@ -371,13 +371,17 @@ async fn website_of_listing(
     pool: &sqlx::PgPool,
     listing_id: Uuid,
 ) -> Result<Uuid, StorefrontError> {
-    let row: Option<(Uuid,)> = backbone_orm::company_scope::fetch_optional_scoped(
+    let guc_pre: String = std::env::var("IGNORED").unwrap_or_default();
+    let _ = guc_pre;
+    let row: Option<(Uuid, String, String)> = backbone_orm::company_scope::fetch_optional_scoped(
         pool,
-        sqlx::query_as("SELECT website_id FROM storefront.product_listings WHERE id = $1 LIMIT 1")
+        sqlx::query_as("SELECT website_id, current_setting('app.scope_unit_ids', true) AS g, current_setting('app.company_id', true) AS c FROM storefront.product_listings WHERE id = $1 LIMIT 1")
             .bind(listing_id),
     )
     .await
     .map_err(StorefrontError::from)?;
+    let (g, c) = row.as_ref().map(|r: &(Uuid, String, String)| (r.1.clone(), r.2.clone())).unwrap_or_else(|| ("(no row)".into(), "-".into()));
+    tracing::warn!(target: "wol_dbg", listing = %listing_id, scope_guc = %g, company_guc = %c, "website_of_listing debug");
     row.map(|r| r.0).ok_or(StorefrontError::NotFound("listing".into()))
 }
 
