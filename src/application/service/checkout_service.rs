@@ -1051,6 +1051,11 @@ pub async fn consume_settlement(
         &deps.pool,
         OrgScope::for_company_unit(company_id),
         async {
+            // The stamp rides the module's OWN relayed transaction: a bare
+            // pool executor runs with no fence variables bound and the
+            // org-fenced row simply does not match — a silent no-op stamp.
+            let mut tx = deps.pool.begin().await?;
+            crate::infrastructure::persistence::relay_ambient_scope(&mut tx).await?;
             let stamped = sqlx::query(
                 r#"
                 UPDATE storefront.checkout_sessions
@@ -1061,7 +1066,7 @@ pub async fn consume_settlement(
                 "#,
             )
             .bind(checkout.id)
-            .execute(&deps.pool)
+            .execute(&mut *tx)
             .await?;
             if stamped.rows_affected() > 0 {
                 record_audit_on_pool(
@@ -1075,6 +1080,7 @@ pub async fn consume_settlement(
                 )
                 .await?;
             }
+            tx.commit().await?;
             Ok::<_, StorefrontError>(stamped)
         },
     )
