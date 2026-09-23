@@ -970,9 +970,24 @@ pub async fn consume_settlement(
     deps: &CheckoutDeps,
     event: &GatewayTransactionSettled,
 ) -> Result<Option<CheckoutRow>, StorefrontError> {
-    let Some(mut checkout) = checkout_by_gateway_tx_on_pool(&deps.pool, event.gateway_transaction_id).await?
-    else {
-        return Ok(None);
+    // The webhook caller carries NO ambient scope (no session, no host),
+    // so the twin's relay would bind nothing and the lookup would go
+    // silently blind — the exactly-wrong Ok(None) exit. The settled event
+    // itself names the company; bind it explicitly for the resolution.
+    let mut checkout = {
+        let pool = deps.pool.clone();
+        let tx_id = event.gateway_transaction_id;
+        let found = org_scope::with_org_request_scope(
+            &deps.pool,
+            OrgScope::for_company_unit(event.company_id),
+            async move { checkout_by_gateway_tx_on_pool(&pool, tx_id).await },
+        )
+        .await
+        .map_err(StorefrontError::from)??;
+        match found {
+            Some(c) => c,
+            None => return Ok(None),
+        }
     };
     if checkout.state == "settled" {
         return Ok(Some(checkout)); // redelivery — exactly-once by the state flip
