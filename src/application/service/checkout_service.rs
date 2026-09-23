@@ -110,6 +110,21 @@ pub async fn checkout_by_id(
     .map_err(StorefrontError::from)
 }
 
+/// The pool-executor call sites' scoped twin: reads on the module's own
+/// relayed transaction, because a bare pool executor runs on a fresh
+/// connection with no fence variables bound and the org-axis row fence
+/// answers it empty (the "checkout vanished after place" shape).
+pub async fn checkout_by_id_on_pool(
+    pool: &sqlx::PgPool,
+    checkout_id: Uuid,
+) -> Result<Option<CheckoutRow>, StorefrontError> {
+    let mut tx = pool.begin().await?;
+    crate::infrastructure::persistence::relay_ambient_scope(&mut tx).await?;
+    let row = checkout_by_id(&mut *tx, checkout_id).await?;
+    tx.commit().await?;
+    Ok(row)
+}
+
 /// The live checkout bound to one gateway transaction — the settlement
 /// consumer's resolution key (partial unique among live rows).
 async fn checkout_by_gateway_tx(
@@ -908,7 +923,7 @@ async fn place_with_lane(
     .await?;
     tx.commit().await?;
 
-    checkout_by_id(&deps.pool, checkout_id)
+    checkout_by_id_on_pool(&deps.pool, checkout_id)
         .await?
         .ok_or_else(|| StorefrontError::Internal("checkout vanished after place".into()))
 }
@@ -1052,7 +1067,7 @@ pub async fn cancel_checkout(
     deps: &CheckoutDeps,
     checkout_id: Uuid,
 ) -> Result<CheckoutRow, StorefrontError> {
-    let checkout = checkout_by_id(&deps.pool, checkout_id)
+    let checkout = checkout_by_id_on_pool(&deps.pool, checkout_id)
         .await?
         .ok_or(StorefrontError::CheckoutNotFound)?;
     if matches!(checkout.state.as_str(), "settled" | "cancelled" | "failed") {
@@ -1116,7 +1131,7 @@ pub async fn cancel_checkout(
         None,
     )
     .await?;
-    checkout_by_id(&deps.pool, checkout_id)
+    checkout_by_id_on_pool(&deps.pool, checkout_id)
         .await?
         .ok_or_else(|| StorefrontError::Internal("checkout vanished after cancel".into()))
 }
@@ -1136,7 +1151,7 @@ pub async fn confirm_pickup(
     payment_reference: Option<&str>,
     actor: ActorRef,
 ) -> Result<CheckoutRow, StorefrontError> {
-    let checkout = checkout_by_id(&deps.pool, checkout_id)
+    let checkout = checkout_by_id_on_pool(&deps.pool, checkout_id)
         .await?
         .ok_or(StorefrontError::CheckoutNotFound)?;
     if checkout.state != "pending_pickup" {
@@ -1209,7 +1224,7 @@ pub async fn confirm_pickup(
         )
         .await?;
     }
-    checkout_by_id(&deps.pool, checkout_id)
+    checkout_by_id_on_pool(&deps.pool, checkout_id)
         .await?
         .ok_or_else(|| StorefrontError::Internal("checkout vanished after pickup confirm".into()))
 }
