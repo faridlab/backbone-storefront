@@ -206,24 +206,66 @@ pub async fn send_recovery(
     officer: ActorRef,
 ) -> Result<String, StorefrontError> {
     let hours = abandoned_after_hours();
-    if !cart_is_abandoned(pool, cart_id, hours).await? {
+    // The whole verb rides ONE relayed transaction bound to the cart's
+    // company (resolved through the unfenced website anchor): the admin
+    // lane's request connection is guard-bound legacy-company only and the
+    // org fence answers every read riding it empty — the window check
+    // itself would refuse a genuinely abandoned cart.
+    let (company,): (Uuid,) = sqlx::query_as(
+        r#"
+        SELECT w.company_id
+        FROM storefront.carts c
+        JOIN website.websites w ON w.id = c.website_id
+        WHERE c.id = $1 AND (c.metadata->>'deleted_at') IS NULL
+        LIMIT 1
+        "#,
+    )
+    .bind(cart_id)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| match e {
+        sqlx::Error::RowNotFound => StorefrontError::CartNotFound,
+        other => StorefrontError::Db(other),
+    })?;
+    let mut tx = pool.begin().await?;
+    crate::infrastructure::persistence::relay_ambient_scope(&mut tx).await?;
+    backbone_orm::org_scope::bind_org_scope_on(
+        &mut *tx,
+        &backbone_orm::org_scope::OrgScope::for_company_unit(company),
+    )
+    .await?;
+    let window: Option<(i64,)> = sqlx::query_as(
+        r#"
+        SELECT 1::int8
+        FROM storefront.carts c
+        WHERE c.id = $1 AND c.state = 'open'
+          AND (c.metadata->>'deleted_at') IS NULL
+          AND (c.metadata->>'updated_at')::timestamptz
+                < now() - make_interval(hours => $2::int)
+        LIMIT 1
+        "#,
+    )
+    .bind(cart_id)
+    .bind(hours)
+    .fetch_optional(&mut *tx)
+    .await?;
+    if window.is_none() {
         return Err(StorefrontError::Guarded(
             "cart does not satisfy the abandonment window".into(),
         ));
     }
-    let cart: Option<(Uuid, Option<Uuid>)> = company_scope::fetch_optional_scoped(
-        pool,
-        sqlx::query_as(
-            r#"
-            SELECT c.website_id, c.party_id
-            FROM storefront.carts c
-            WHERE c.id = $1 AND (c.metadata->>'deleted_at') IS NULL
-            LIMIT 1
-            "#,
-        )
-        .bind(cart_id),
+    let cart: Option<(Uuid, Option<Uuid>)> = sqlx::query_as(
+        r#"
+        SELECT c.website_id, c.party_id
+        FROM storefront.carts c
+        WHERE c.id = $1 AND (c.metadata->>'deleted_at') IS NULL
+        LIMIT 1
+        "#,
     )
+    .bind(cart_id)
+    .fetch_optional(&mut *tx)
     .await?;
+    tx.commit().await?;
     let Some((website_id, party_id)) = cart else {
         return Err(StorefrontError::CartNotFound);
     };
