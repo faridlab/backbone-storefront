@@ -30,7 +30,7 @@ use backbone_orm::org_scope::{self, OrgScope};
 use super::audit::{record_audit, record_audit_on_pool, ActorRef};
 use super::catalog_read_port::CatalogReadPort;
 use super::party_write_port::PartyWritePort;
-use super::pricing_service::settings_for_scoped;
+use super::pricing_service::{settings_for_scoped, SaleSettingsRow};
 use super::storefront_error::StorefrontError;
 use crate::infrastructure::persistence::relay_ambient_scope;
 
@@ -745,8 +745,6 @@ pub async fn set_settings(
         sqlx::Error::RowNotFound => StorefrontError::WebsiteNotFound,
         other => StorefrontError::Db(other),
     })?;
-    let existing = settings_for_scoped(pool, website_id).await?;
-
     // One transaction for the write and the audit stamp it must be recorded
     // with, carrying the website's own unit as the scope.
     //
@@ -758,6 +756,26 @@ pub async fn set_settings(
     // is what makes the verb complete at all.
     let mut tx = pool.begin().await?;
     org_scope::bind_org_scope_on(&mut *tx, &OrgScope::for_company_unit(company_id)).await?;
+
+    // The existence read rides THIS transaction: the scoped fetch on the
+    // request connection is subject to the guard-bound shadowing (company
+    // GUCs only), which reads the live settings row as absent — the verb
+    // then INSERTs and the live-unique index on website_id refuses. On the
+    // relayed transaction the fence sees the row and the UPDATE arm runs.
+    let existing: Option<SaleSettingsRow> = sqlx::query_as::<_, SaleSettingsRow>(
+        r#"
+        SELECT id, website_id, access_gate::text AS access_gate,
+               default_customer_group_id, guest_party_id,
+               recovery_template_ref, display_warehouse_id
+        FROM storefront.website_sale_settings
+        WHERE website_id = $1 AND (metadata->>'deleted_at') IS NULL
+        LIMIT 1
+        "#,
+    )
+    .bind(website_id)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(StorefrontError::from)?;
 
     let settings_id = match existing {
         Some(row) => {
