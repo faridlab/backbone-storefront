@@ -488,7 +488,55 @@ async fn settings_read(
     State(state): State<StorefrontAdminState>,
     Path(path): Path<WebsitePath>,
 ) -> Response {
-    match settings_for_scoped(&state.pool, path.website_id).await {
+    // The scoped fetch rides the guard-shadowed request connection on this
+    // lane (company GUCs only) and reads the live row as absent. Open the
+    // module's own relayed transaction bound to the website's company —
+    // the same read lane the write fix uses — so the fence sees the row.
+    let settings_read: Result<Option<crate::application::service::pricing_service::SaleSettingsRow>, StorefrontError> = {
+        let company: Result<Uuid, StorefrontError> = sqlx::query_as(
+            "SELECT company_id FROM website.websites \
+             WHERE id = $1 AND (metadata->>'deleted_at') IS NULL",
+        )
+        .bind(path.website_id)
+        .fetch_one(&state.pool)
+        .await
+        .map(|(c,)| c)
+        .map_err(|e| match e {
+            sqlx::Error::RowNotFound => StorefrontError::WebsiteNotFound,
+            other => StorefrontError::Db(other),
+        });
+        match company {
+            Err(e) => Err(e),
+            Ok(company) => {
+                let mut tx = match state.pool.begin().await {
+                    Ok(tx) => tx,
+                    Err(e) => return err_response(StorefrontError::Db(e)),
+                };
+                if let Err(e) = backbone_orm::org_scope::bind_org_scope_on(
+                    &mut *tx,
+                    &backbone_orm::org_scope::OrgScope::for_company_unit(company),
+                )
+                .await
+                {
+                    return err_response(StorefrontError::Db(e));
+                }
+                let row = sqlx::query_as::<_, crate::application::service::pricing_service::SaleSettingsRow>(
+                    "SELECT id, website_id, access_gate::text AS access_gate, \
+                            default_customer_group_id, guest_party_id, \
+                            recovery_template_ref, display_warehouse_id \
+                     FROM storefront.website_sale_settings \
+                     WHERE website_id = $1 AND (metadata->>'deleted_at') IS NULL LIMIT 1",
+                )
+                .bind(path.website_id)
+                .fetch_optional(&mut *tx)
+                .await
+                .map_err(StorefrontError::from);
+                let _ = tx.commit().await;
+                row
+            }
+        }
+    };
+    match settings_read {
         Ok(Some(row)) => (
             axum::http::StatusCode::OK,
             Json(json!({
