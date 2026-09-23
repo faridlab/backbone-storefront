@@ -68,6 +68,7 @@ async fn abandoned_carts_where(
     where_sql: &str,
     binds: Vec<uuid::Uuid>,
     hours: i64,
+    scope_company: Option<uuid::Uuid>,
 ) -> Result<Vec<AbandonedCartRow>, StorefrontError> {
     // `where_sql` is a compile-time constant in this file (never
     // client input); the binds are typed uuids.
@@ -91,6 +92,28 @@ async fn abandoned_carts_where(
         "#,
         hours_idx = binds.len() + 1,
     );
+    // The admin lane's request connection is guard-bound legacy-company
+    // only, and the org fence answers reads riding it empty (the officer
+    // abandoned read saw zero carts). When the caller names the company,
+    // read on the module's OWN relayed transaction bound to it; the
+    // identity lane (public, site-scoped by the middleware) keeps the
+    // scoped fetch.
+    if let Some(company) = scope_company {
+        let mut tx = pool.begin().await?;
+        crate::infrastructure::persistence::relay_ambient_scope(&mut tx).await?;
+        backbone_orm::org_scope::bind_org_scope_on(
+            &mut *tx,
+            &backbone_orm::org_scope::OrgScope::for_company_unit(company),
+        )
+        .await?;
+        let mut q = sqlx::query_as::<_, AbandonedCartRow>(&sql);
+        for b in &binds {
+            q = q.bind(b);
+        }
+        let rows = q.bind(hours).fetch_all(&mut *tx).await?;
+        tx.commit().await?;
+        return Ok(rows);
+    }
     let mut q = sqlx::query_as::<_, AbandonedCartRow>(&sql);
     for b in &binds {
         q = q.bind(b);
@@ -114,6 +137,7 @@ pub async fn abandoned_carts_for_company(
             AND (w.metadata->>'deleted_at') IS NULL)",
         vec![company_id],
         hours,
+        Some(company_id),
     )
     .await
 }
@@ -134,10 +158,11 @@ pub async fn abandoned_carts_for_identity(
             "(c.visitor_id = $1 OR c.portal_user_id = $2)",
             vec![visitor_id, pid],
             hours,
+            None,
         )
         .await,
         None => {
-            abandoned_carts_where(pool, "c.visitor_id = $1", vec![visitor_id], hours).await
+            abandoned_carts_where(pool, "c.visitor_id = $1", vec![visitor_id], hours, None).await
         }
     }
 }
