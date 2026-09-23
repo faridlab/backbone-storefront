@@ -127,6 +127,20 @@ pub async fn checkout_by_id_on_pool(
 
 /// The live checkout bound to one gateway transaction — the settlement
 /// consumer's resolution key (partial unique among live rows).
+/// The settlement consumer's pool twin of the gateway-tx resolution: own
+/// relayed transaction, both fence variables bound (a bare pool executor
+/// reads with none and the org fence answers empty).
+async fn checkout_by_gateway_tx_on_pool(
+    pool: &sqlx::PgPool,
+    gateway_transaction_id: Uuid,
+) -> Result<Option<CheckoutRow>, StorefrontError> {
+    let mut tx = pool.begin().await?;
+    crate::infrastructure::persistence::relay_ambient_scope(&mut tx).await?;
+    let row = checkout_by_gateway_tx(&mut *tx, gateway_transaction_id).await?;
+    tx.commit().await?;
+    Ok(row)
+}
+
 async fn checkout_by_gateway_tx(
     exec: impl sqlx::Executor<'_, Database = sqlx::Postgres>,
     gateway_transaction_id: Uuid,
@@ -956,7 +970,7 @@ pub async fn consume_settlement(
     deps: &CheckoutDeps,
     event: &GatewayTransactionSettled,
 ) -> Result<Option<CheckoutRow>, StorefrontError> {
-    let Some(mut checkout) = checkout_by_gateway_tx(&deps.pool, event.gateway_transaction_id).await?
+    let Some(mut checkout) = checkout_by_gateway_tx_on_pool(&deps.pool, event.gateway_transaction_id).await?
     else {
         return Ok(None);
     };

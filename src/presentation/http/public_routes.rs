@@ -1258,7 +1258,7 @@ async fn checkout_read(
     // Ownership: the checkout's own cart lineage (visitor OR principal
     // linkage); a foreign checkout is indistinguishable from a missing
     // one. A pure derived read — zero writes.
-    let checkout = match checkout_service::checkout_by_id(&state.pool, checkout_id).await {
+    let checkout = match checkout_service::checkout_by_id_on_pool(&state.pool, checkout_id).await {
         Ok(Some(c)) if c.website_id == website.id => c,
         Ok(_) => return storefront_error_response(StorefrontError::CheckoutNotFound),
         Err(e) => return storefront_error_response(e),
