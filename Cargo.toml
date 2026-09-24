@@ -1,6 +1,6 @@
 [package]
 name = "backbone-storefront"
-version = "0.2.64"
+version = "0.2.65"
 edition = "2021"
 description = "Server-authoritative eCommerce core — carts as identity-bound drafts (partial-unique open cart per visitor, explicit adoption through portal linkage, the sales order minted only at place under a cart row lock that also guards delivery and billing changes), publish-gated per-website product listings with per-website price rows, checkout that creates the pending gateway transaction inside the lock, settlement-to-confirm riding the gateway's existing seam, abandoned carts as a derived read with an explicit recovery verb, plus the shopper companions: host-composed availability reads with display-vs-checkout scopes and a place-time stock gate, Click & Collect with a server-validated pickup registry and a pay-on-site lane that never auto-confirms an unpaid order, a visitor-backed merge-safe wishlist, a server-capped comparison read, promo reward lines surfaced on every priced read, and back-in-stock demand as an officer-only explicit-send surface (Odoo website_sale + companion port; rendering and the payment UX stay in the webapps)"
 
@@ -16,18 +16,18 @@ path = "src/lib.rs"
 # at module creation (single-rev policy: every framework source in the
 # resolved graph resolves to this one tag).
 # -----------------------------------------------------------------------------
-backbone-auditlog = { git = "https://github.com/faridlab/backbone-auditlog", tag = "v0.1.20" }
-backbone-core = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.31", features = ["postgres"] }
-backbone-orm = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.31" }
-backbone-auth = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.31" }
-backbone-rate-limit = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.31" }
+backbone-auditlog = { git = "https://github.com/faridlab/backbone-auditlog", tag = "v0.1.21" }
+backbone-core = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.32", features = ["postgres"] }
+backbone-orm = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.32" }
+backbone-auth = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.32" }
+backbone-rate-limit = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.32" }
 # The generated event scaffolding (src/domain/event/*.rs — CrudEvent /
 # CrudEventPublisher imports) does not compile without this crate. The
 # module itself stages NO outbox events, subscribes to NONE (hooks index
 # declares events: {}), owns no outbox table, and the host's
 # outbox_schemas set carries no storefront entry — the same
 # zero-events-with-plumbing-dep posture as the website and blog modules.
-backbone-messaging = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.31" }
+backbone-messaging = { git = "https://github.com/faridlab/backbone-framework", tag = "v2.7.32" }
 
 # -----------------------------------------------------------------------------
 # Sibling module edges — EXACTLY FOUR, each justified by a NAMED type
@@ -39,10 +39,10 @@ backbone-messaging = { git = "https://github.com/faridlab/backbone-framework", t
 # carriers are org-scoped by the composing service's decorator, so this
 # module's reads on those tables key on org_unit_id and ride the
 # request-dedicated org-scope lane.
-backbone-selling = { git = "https://github.com/faridlab/backbone-selling", tag = "v0.13.14" }
-backbone-website = { git = "https://github.com/faridlab/backbone-website", tag = "v0.3.29" }
-backbone-portal = { git = "https://github.com/faridlab/backbone-portal", tag = "v0.2.25" }
-backbone-payment-gateway = { git = "https://github.com/faridlab/backbone-payment-gateway", tag = "v0.4.20" }
+backbone-selling = { git = "https://github.com/faridlab/backbone-selling", tag = "v0.13.15" }
+backbone-website = { git = "https://github.com/faridlab/backbone-website", tag = "v0.3.30" }
+backbone-portal = { git = "https://github.com/faridlab/backbone-portal", tag = "v0.2.26" }
+backbone-payment-gateway = { git = "https://github.com/faridlab/backbone-payment-gateway", tag = "v0.4.21" }
 
 # Sibling modules NOT consumed by design — recorded here so no later seat
 # adds them casually (the website precedent):
