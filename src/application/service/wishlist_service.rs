@@ -441,7 +441,7 @@ pub async fn send_stock_alerts(
         .bind(item_id),
     )
     .await?;
-    let armed_total: (i64,) = company_scope::fetch_one_scalar_scoped(
+    let armed_total: i64 = company_scope::fetch_one_scalar_scoped(
         pool,
         sqlx::query_scalar(
             r#"
@@ -457,9 +457,9 @@ pub async fn send_stock_alerts(
     .await?;
     let mut summary = StockAlertSummary {
         item_id,
-        attempted: armed_total.0 as usize,
+        attempted: armed_total as usize,
         sent: 0,
-        skipped_no_address: (armed_total.0 as usize).saturating_sub(rows.len()),
+        skipped_no_address: (armed_total as usize).saturating_sub(rows.len()),
         failed: 0,
         delivery_state: "none",
     };

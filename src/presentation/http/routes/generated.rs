@@ -92,43 +92,43 @@ pub mod individual {
     use super::*;
 
     pub fn cart_routes(service: Arc<CartService>) -> Router {
-        create_cart_routes(service)
+        create_cart_read_routes(service)
     }
 
     pub fn cart_line_routes(service: Arc<CartLineService>) -> Router {
-        create_cart_line_routes(service)
+        create_cart_line_read_routes(service)
     }
 
     pub fn checkout_session_routes(service: Arc<CheckoutSessionService>) -> Router {
-        create_checkout_session_routes(service)
+        create_checkout_session_read_routes(service)
     }
 
     pub fn pickup_location_routes(service: Arc<PickupLocationService>) -> Router {
-        create_pickup_location_routes(service)
+        create_pickup_location_read_routes(service)
     }
 
     pub fn product_listing_routes(service: Arc<ProductListingService>) -> Router {
-        create_product_listing_routes(service)
+        create_product_listing_read_routes(service)
     }
 
     pub fn product_price_routes(service: Arc<ProductPriceService>) -> Router {
-        create_product_price_routes(service)
+        create_product_price_read_routes(service)
     }
 
     pub fn recovery_invite_routes(service: Arc<RecoveryInviteService>) -> Router {
-        create_recovery_invite_routes(service)
+        create_recovery_invite_read_routes(service)
     }
 
     pub fn shopper_party_routes(service: Arc<ShopperPartyService>) -> Router {
-        create_shopper_party_routes(service)
+        create_shopper_party_read_routes(service)
     }
 
     pub fn website_sale_setting_routes(service: Arc<WebsiteSaleSettingService>) -> Router {
-        create_website_sale_setting_routes(service)
+        create_website_sale_setting_read_routes(service)
     }
 
     pub fn wishlist_item_routes(service: Arc<WishlistItemService>) -> Router {
-        create_wishlist_item_routes(service)
+        create_wishlist_item_read_routes(service)
     }
 
 }

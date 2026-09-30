@@ -297,4 +297,3 @@ impl backbone_core::ApplyUpdateDto<UpdateWishlistItemDto> for WishlistItem {
 // Add custom DTOs specific to WishlistItem here.
 // This section will be preserved during regeneration.
 // >>> END CUSTOM DTOs
-

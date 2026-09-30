@@ -211,6 +211,7 @@ impl backbone_orm::EntityRepoMeta for RecoveryInvite {
         let mut m = std::collections::HashMap::new();
         m.insert("id".to_string(), "uuid".to_string());
         m.insert("cart_id".to_string(), "uuid".to_string());
+        m.insert("notified_at".to_string(), "timestamptz".to_string());
         m
     }
     fn search_fields() -> &'static [&'static str] {
