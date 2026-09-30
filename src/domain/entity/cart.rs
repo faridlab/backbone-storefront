@@ -279,6 +279,7 @@ impl backbone_orm::EntityRepoMeta for Cart {
         m.insert("delivery_carrier_id".to_string(), "uuid".to_string());
         m.insert("pickup_location_id".to_string(), "uuid".to_string());
         m.insert("state".to_string(), "storefront_cart_state".to_string());
+        m.insert("placed_at".to_string(), "timestamptz".to_string());
         m
     }
     fn search_fields() -> &'static [&'static str] {

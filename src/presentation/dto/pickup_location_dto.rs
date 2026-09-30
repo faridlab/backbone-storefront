@@ -361,4 +361,3 @@ impl backbone_core::ApplyUpdateDto<UpdatePickupLocationDto> for PickupLocation {
 // Add custom DTOs specific to PickupLocation here.
 // This section will be preserved during regeneration.
 // >>> END CUSTOM DTOs
-

@@ -290,6 +290,8 @@ impl backbone_orm::EntityRepoMeta for CheckoutSession {
         m.insert("gateway_transaction_id".to_string(), "uuid".to_string());
         m.insert("pickup_location_id".to_string(), "uuid".to_string());
         m.insert("state".to_string(), "storefront_checkout_state".to_string());
+        m.insert("placed_at".to_string(), "timestamptz".to_string());
+        m.insert("settled_at".to_string(), "timestamptz".to_string());
         m
     }
     fn search_fields() -> &'static [&'static str] {

@@ -865,7 +865,7 @@ async fn stock_alert_send(
             })),
         )
             .into_response(),
-        Err(e) => err_response(e),
+        Err(e) => err_response(e)
     }
 }
 
