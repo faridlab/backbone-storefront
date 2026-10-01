@@ -226,8 +226,9 @@ dependencies = [
 
 [[package]]
 name = "backbone-auditlog"
-version = "0.1.16"
-source = "git+https://github.com/faridlab/backbone-auditlog?tag=v0.1.16#9f7ab6ee3ff2baa2c81f1ec2e1ab83319711845e"
+version = "0.1.29"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d35f1f1ae536fded379b3a7a7d0716954915eb3a801464fc0eca54043d892108"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -260,8 +261,9 @@ dependencies = [
 
 [[package]]
 name = "backbone-auth"
-version = "2.0.0"
-source = "git+https://github.com/faridlab/backbone-framework?tag=v2.7.28#c0caef7145454db3eaabef6072402229a7c9037a"
+version = "2.7.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "877969dfe37a56603e33a6bd6049728d9429691868232be4e46f49c51d719a6f"
 dependencies = [
  "anyhow",
  "argon2",
@@ -287,8 +289,9 @@ dependencies = [
 
 [[package]]
 name = "backbone-core"
-version = "2.0.0"
-source = "git+https://github.com/faridlab/backbone-framework?tag=v2.7.28#c0caef7145454db3eaabef6072402229a7c9037a"
+version = "2.7.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f857421832c0f767bee979eede388331ba7c9ca27a24cf087b5a5b4186f35c14"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -314,8 +317,9 @@ dependencies = [
 
 [[package]]
 name = "backbone-email"
-version = "2.0.0"
-source = "git+https://github.com/faridlab/backbone-framework?tag=v2.7.28#c0caef7145454db3eaabef6072402229a7c9037a"
+version = "2.7.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5595746026cc2b5adcc6c46c0696a924b5098f8ceb72d2dfee96d5e466bfb5e9"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -333,8 +337,9 @@ dependencies = [
 
 [[package]]
 name = "backbone-gl-posting"
-version = "0.1.0"
-source = "git+https://github.com/faridlab/backbone-framework?tag=v2.7.28#c0caef7145454db3eaabef6072402229a7c9037a"
+version = "2.7.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc673d2f4c557e481a066d98f84c945076cdff5bf750c2012c3654380a783f30"
 dependencies = [
  "async-trait",
  "chrono",
@@ -346,8 +351,9 @@ dependencies = [
 
 [[package]]
 name = "backbone-messaging"
-version = "2.0.0"
-source = "git+https://github.com/faridlab/backbone-framework?tag=v2.7.28#c0caef7145454db3eaabef6072402229a7c9037a"
+version = "2.7.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c07431b7f32283593d4f717a6776b9cbb6f6977584e4009ce9fd0db7be0ca7f"
 dependencies = [
  "async-trait",
  "chrono",
@@ -361,8 +367,9 @@ dependencies = [
 
 [[package]]
 name = "backbone-orm"
-version = "2.0.0"
-source = "git+https://github.com/faridlab/backbone-framework?tag=v2.7.28#c0caef7145454db3eaabef6072402229a7c9037a"
+version = "2.7.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57d1ef6ea3c7d7778050efd0132273e35ea4adffa8576d988ce3c3a52aa8551b"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -380,8 +387,9 @@ dependencies = [
 
 [[package]]
 name = "backbone-outbox"
-version = "0.2.0"
-source = "git+https://github.com/faridlab/backbone-framework?tag=v2.7.28#c0caef7145454db3eaabef6072402229a7c9037a"
+version = "2.7.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "94e8080a8c01f22e98b8040901cec3f61288fdb1b69baa0a75fdb39763d325bb"
 dependencies = [
  "chrono",
  "serde",
@@ -393,8 +401,9 @@ dependencies = [
 
 [[package]]
 name = "backbone-payment-gateway"
-version = "0.4.16"
-source = "git+https://github.com/faridlab/backbone-payment-gateway?tag=v0.4.16#58020fc52498316e02ad2766515749fb6017b5ad"
+version = "0.4.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92065b7f837734a3f07b5989f3c86755b19f2d3ee076eabc941443f51a7b5afa"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -430,8 +439,9 @@ dependencies = [
 
 [[package]]
 name = "backbone-portal"
-version = "0.2.21"
-source = "git+https://github.com/faridlab/backbone-portal?tag=v0.2.21#29448ed9ffd4928c2340968a423bbaca94c44df3"
+version = "0.2.30"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cee5af62ca00087825d898ddb99b419e36d609d384c0fa016538495bcfdeb59e"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -463,8 +473,9 @@ dependencies = [
 
 [[package]]
 name = "backbone-rate-limit"
-version = "2.0.0"
-source = "git+https://github.com/faridlab/backbone-framework?tag=v2.7.28#c0caef7145454db3eaabef6072402229a7c9037a"
+version = "2.7.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "355e3f94334869a7749ca05ff967f6d1ebb30a4b0511805046d0772ce3945103"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -483,8 +494,9 @@ dependencies = [
 
 [[package]]
 name = "backbone-sapiens"
-version = "0.4.14"
-source = "git+https://github.com/faridlab/backbone-sapiens?tag=v0.4.14#079ea10c1a549068eaa77c3bf2a9a60f461500de"
+version = "0.4.27"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d95dbd154bc87a5930cfb6b953799060e8a989e202d0a65009d1a96e103e574"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -531,8 +543,9 @@ dependencies = [
 
 [[package]]
 name = "backbone-selling"
-version = "0.13.10"
-source = "git+https://github.com/faridlab/backbone-selling?tag=v0.13.10#451fbb20b24156a6aba6bbf6617f789bd7542cd1"
+version = "0.13.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "977af07a7fb6356775ad71405f9dfe940e8768c9d304d30d737952b461d8536e"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -566,7 +579,7 @@ dependencies = [
 
 [[package]]
 name = "backbone-storefront"
-version = "0.2.59"
+version = "0.2.75"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -603,8 +616,9 @@ dependencies = [
 
 [[package]]
 name = "backbone-website"
-version = "0.3.25"
-source = "git+https://github.com/faridlab/backbone-website?tag=v0.3.25#b2c93f8d242b84fc26d8c292571dd15d2287ec82"
+version = "0.3.37"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3b399b0552f681f03feb81d628f399162548bc20df4195c87cbb1c947e15c121"
 dependencies = [
  "anyhow",
  "async-trait",
