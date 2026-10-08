@@ -36,7 +36,7 @@ impl Seeder for SeedCartLineSeeder {
     }
 
     fn order(&self) -> i32 {
-        2
+        3
     }
 
     async fn should_run(&self, pool: &PgPool) -> Result<bool> {
