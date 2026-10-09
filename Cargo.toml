@@ -1,6 +1,6 @@
 [package]
 name = "backbone-storefront"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2021"
 description = "Server-authoritative eCommerce core: identity-bound carts, per-website listings and prices, locked checkout through the payment gateway, Click & Collect, wishlists, comparisons and back-in-stock requests"
 license = "MIT OR Apache-2.0"
@@ -11,6 +11,8 @@ exclude = [".claude/", ".github/", "graphify-out/"]
 path = "src/lib.rs"
 
 [dependencies]
+# OpenAPI schema derive, only with the `openapi` feature.
+utoipa = { version = "5", optional = true, features = ["chrono", "uuid", "decimal"] }
 # -----------------------------------------------------------------------------
 # Backbone Framework crates
 #
@@ -90,6 +92,15 @@ anyhow = "1.0"
 thiserror = "1.0"
 config = "0.14"
 serde_yaml = "0.9"
+
+
+[features]
+# Generated code gates its OpenAPI derives, request validation and auth extraction
+# behind these features; declaring them keeps every cfg checked by the compiler.
+default = []
+auth = []
+openapi = ["dep:utoipa"]
+validation = []
 
 [dev-dependencies]
 tempfile = "3.0"

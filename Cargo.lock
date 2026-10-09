@@ -579,7 +579,7 @@ dependencies = [
 
 [[package]]
 name = "backbone-storefront"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -610,6 +610,7 @@ dependencies = [
  "tower 0.4.13",
  "tower-http 0.5.2",
  "tracing",
+ "utoipa",
  "uuid",
  "validator",
 ]
