@@ -1,6 +1,6 @@
 [package]
 name = "backbone-storefront"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 description = "Server-authoritative eCommerce core: identity-bound carts, per-website listings and prices, locked checkout through the payment gateway, Click & Collect, wishlists, comparisons and back-in-stock requests"
 license = "MIT OR Apache-2.0"
@@ -45,8 +45,8 @@ backbone-messaging = { version = "3.0.0" }
 # module's reads on those tables key on org_unit_id and ride the
 # request-dedicated org-scope lane.
 backbone-selling = { version = "0.14.0" }
-backbone-website = { version = "0.4.0" }
-backbone-portal = { version = "0.3.0" }
+backbone-website = { version = "0.5.0" }
+backbone-portal = { version = "0.4.0" }
 backbone-payment-gateway = { version = "0.5.0" }
 
 # Sibling modules NOT consumed by design — recorded here so no later seat
