@@ -235,8 +235,6 @@ impl CheckoutSession {
         }
     }
 
-    // <<< CUSTOM METHODS START >>>
-    // <<< CUSTOM METHODS END >>>
 }
 
 impl super::Entity for CheckoutSession {

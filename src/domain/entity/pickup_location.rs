@@ -233,8 +233,6 @@ impl PickupLocation {
         }
     }
 
-    // <<< CUSTOM METHODS START >>>
-    // <<< CUSTOM METHODS END >>>
 }
 
 impl super::Entity for PickupLocation {

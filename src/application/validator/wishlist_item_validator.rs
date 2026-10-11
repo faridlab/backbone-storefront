@@ -16,9 +16,5 @@ pub type WishlistItemValidator = EntityValidator<WishlistItem>;
 pub fn wishlist_item_validator() -> WishlistItemValidator {
     EntityValidator::new()
         .rule(OptionalNotBlank::new("contact_email", |e: &WishlistItem| e.contact_email.as_deref()))
-    // <<< CUSTOM RULES
-    // END CUSTOM RULES
 }
 
-// <<< CUSTOM
-// END CUSTOM

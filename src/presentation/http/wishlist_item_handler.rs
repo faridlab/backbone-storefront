@@ -186,3 +186,4 @@ pub fn create_protected_wishlist_item_routes<A: AuthMiddleware + Send + Sync + '
             }
         }))
 }
+

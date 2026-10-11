@@ -11,8 +11,6 @@ use crate::domain::entity::CheckoutSession;
 /// enum containing a `Crud(CrudEvent<CheckoutSession>)` variant.
 pub type CheckoutSessionEvent = CrudEvent<CheckoutSession>;
 
-// <<< CUSTOM
-// END CUSTOM
 
 use backbone_messaging::{CrudEventPublisher, NoOpCrudEventPublisher};
 use std::sync::Arc;

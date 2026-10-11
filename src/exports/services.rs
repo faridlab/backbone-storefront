@@ -10,35 +10,9 @@
 // CUSTOM SERVICES
 // ============================================================================
 
-// <<< CUSTOM SERVICES START >>>
-// The host compose seam consumes the module through these re-exports:
-// the ports (catalog/party/tax/availability/notifier), the pricing +
-// checkout + collect surfaces, and the typed error. The host installs
-// adapters over its own module handles; the refusing/unwired defaults
-// keep an uncomposed module fail-closed instead of silently functional.
+// Add custom public services here
 
-pub use crate::application::service::catalog_read_port::{
-    CatalogPortError, CatalogReadPort, ItemSnapshot, RefusingCatalogReadPort,
-};
-pub use crate::application::service::notifier_port::{
-    RecoveryDelivery, RecoveryMessage, RecoveryNotifier, StockAlertDelivery, StockAlertMessage,
-    StockAlertNotifier, UnwiredRecoveryNotifier, UnwiredStockAlertNotifier,
-};
-pub use crate::application::service::party_write_port::{
-    PartyPortError, PartyWritePort, RefusingPartyWritePort,
-};
-pub use crate::application::service::tax_resolve_port::{
-    RefusingTaxResolvePort, TaxPortError, TaxResolvePort,
-};
-pub use crate::application::service::availability_port::{
-    AvailabilityPortError, AvailabilityReadPort, ItemAvailability, RefusingAvailabilityReadPort,
-};
-pub use crate::application::service::checkout_service::{
-    CheckoutDeps, CheckoutRow, PaymentLane,
-};
-pub use crate::application::service::collect_service::{
-    LocationPatch, PickupLocationRow,
-};
-pub use crate::application::service::pricing_service::PricedCartView;
-pub use crate::application::service::storefront_error::StorefrontError;
-// <<< CUSTOM SERVICES END >>>
+// This file's extension (hand-written; ADR-0031).
+#[path = "services.ext.rs"]
+mod services_ext;
+pub use services_ext::*;

@@ -32,5 +32,3 @@ pub type CheckoutSessionService = GenericCrudService<
     CheckoutSessionRepository,
 >;
 
-// <<< CUSTOM
-// END CUSTOM

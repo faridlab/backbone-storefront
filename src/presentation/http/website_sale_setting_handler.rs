@@ -186,3 +186,4 @@ pub fn create_protected_website_sale_setting_routes<A: AuthMiddleware + Send + S
             }
         }))
 }
+

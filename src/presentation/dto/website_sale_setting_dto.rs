@@ -286,7 +286,7 @@ impl backbone_core::ApplyUpdateDto<UpdateWebsiteSaleSettingDto> for WebsiteSaleS
 // Custom DTOs
 // =============================================================================
 
-// <<< CUSTOM DTOs
 // Add custom DTOs specific to WebsiteSaleSetting here.
 // This section will be preserved during regeneration.
 // >>> END CUSTOM DTOs
+

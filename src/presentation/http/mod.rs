@@ -16,8 +16,6 @@ pub mod shopper_party_handler;
 pub mod website_sale_setting_handler;
 pub mod wishlist_item_handler;
 
-// <<< CUSTOM
-// END CUSTOM
 
 // Re-exports
 pub use cart_handler::{create_cart_routes, create_cart_read_routes, create_cart_write_routes};
@@ -30,8 +28,6 @@ pub use recovery_invite_handler::{create_recovery_invite_routes, create_recovery
 pub use shopper_party_handler::{create_shopper_party_routes, create_shopper_party_read_routes, create_shopper_party_write_routes};
 pub use website_sale_setting_handler::{create_website_sale_setting_routes, create_website_sale_setting_read_routes, create_website_sale_setting_write_routes};
 pub use wishlist_item_handler::{create_wishlist_item_routes, create_wishlist_item_read_routes, create_wishlist_item_write_routes};
-// <<< CUSTOM
-// END CUSTOM
 
 // This directory's extension (hand-written; ADR-0031).
 include!("mod.ext.rs");

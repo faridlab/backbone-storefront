@@ -335,7 +335,7 @@ impl backbone_core::ApplyUpdateDto<UpdateCartDto> for Cart {
 // Custom DTOs
 // =============================================================================
 
-// <<< CUSTOM DTOs
 // Add custom DTOs specific to Cart here.
 // This section will be preserved during regeneration.
 // >>> END CUSTOM DTOs
+

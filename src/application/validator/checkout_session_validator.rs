@@ -17,9 +17,5 @@ pub fn checkout_session_validator() -> CheckoutSessionValidator {
     EntityValidator::new()
         .rule(OptionalNotBlank::new("provider_code", |e: &CheckoutSession| e.provider_code.as_deref()))
         .rule(OptionalNotBlank::new("provider_reference", |e: &CheckoutSession| e.provider_reference.as_deref()))
-    // <<< CUSTOM RULES
-    // END CUSTOM RULES
 }
 
-// <<< CUSTOM
-// END CUSTOM

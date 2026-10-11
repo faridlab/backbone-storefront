@@ -32,5 +32,3 @@ pub type CartLineService = GenericCrudService<
     CartLineRepository,
 >;
 
-// <<< CUSTOM
-// END CUSTOM

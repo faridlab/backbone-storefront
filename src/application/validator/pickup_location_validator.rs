@@ -20,9 +20,5 @@ pub fn pickup_location_validator() -> PickupLocationValidator {
         .rule(OptionalNotBlank::new("city", |e: &PickupLocation| e.city.as_deref()))
         .rule(OptionalNotBlank::new("postal_code", |e: &PickupLocation| e.postal_code.as_deref()))
         .rule(RequiredString::new("country", |e: &PickupLocation| &e.country))
-    // <<< CUSTOM RULES
-    // END CUSTOM RULES
 }
 
-// <<< CUSTOM
-// END CUSTOM

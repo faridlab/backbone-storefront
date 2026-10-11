@@ -18,5 +18,3 @@ use crate::domain::entity::CartLine;
 /// service. `PermitAllPolicy` is the safe default until then.
 pub type CartLineDomainPolicy = PermitAllPolicy<CartLine>;
 
-// <<< CUSTOM
-// END CUSTOM

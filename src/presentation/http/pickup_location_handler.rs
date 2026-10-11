@@ -187,3 +187,4 @@ pub fn create_protected_pickup_location_routes<A: AuthMiddleware + Send + Sync +
             }
         }))
 }
+

@@ -32,5 +32,3 @@ pub type ShopperPartyService = GenericCrudService<
     ShopperPartyRepository,
 >;
 
-// <<< CUSTOM
-// END CUSTOM

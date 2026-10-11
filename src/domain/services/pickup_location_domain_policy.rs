@@ -18,5 +18,3 @@ use crate::domain::entity::PickupLocation;
 /// service. `PermitAllPolicy` is the safe default until then.
 pub type PickupLocationDomainPolicy = PermitAllPolicy<PickupLocation>;
 
-// <<< CUSTOM
-// END CUSTOM

@@ -18,5 +18,3 @@ use crate::domain::entity::RecoveryInvite;
 /// service. `PermitAllPolicy` is the safe default until then.
 pub type RecoveryInviteDomainPolicy = PermitAllPolicy<RecoveryInvite>;
 
-// <<< CUSTOM
-// END CUSTOM

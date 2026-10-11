@@ -307,7 +307,7 @@ impl backbone_core::ApplyUpdateDto<UpdateProductListingDto> for ProductListing {
 // Custom DTOs
 // =============================================================================
 
-// <<< CUSTOM DTOs
 // Add custom DTOs specific to ProductListing here.
 // This section will be preserved during regeneration.
 // >>> END CUSTOM DTOs
+

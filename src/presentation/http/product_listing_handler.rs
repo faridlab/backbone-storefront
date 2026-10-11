@@ -186,3 +186,4 @@ pub fn create_protected_product_listing_routes<A: AuthMiddleware + Send + Sync +
             }
         }))
 }
+

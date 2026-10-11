@@ -32,5 +32,3 @@ pub type RecoveryInviteService = GenericCrudService<
     RecoveryInviteRepository,
 >;
 
-// <<< CUSTOM
-// END CUSTOM

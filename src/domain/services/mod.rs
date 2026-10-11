@@ -24,5 +24,3 @@ pub use shopper_party_domain_policy::ShopperPartyDomainPolicy;
 pub use website_sale_setting_domain_policy::WebsiteSaleSettingDomainPolicy;
 pub use wishlist_item_domain_policy::WishlistItemDomainPolicy;
 
-// <<< CUSTOM
-// END CUSTOM

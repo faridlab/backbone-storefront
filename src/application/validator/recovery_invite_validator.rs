@@ -17,9 +17,5 @@ pub fn recovery_invite_validator() -> RecoveryInviteValidator {
     EntityValidator::new()
         .rule(RequiredString::new("template_ref", |e: &RecoveryInvite| &e.template_ref))
         .rule(RequiredString::new("delivery_state", |e: &RecoveryInvite| &e.delivery_state))
-    // <<< CUSTOM RULES
-    // END CUSTOM RULES
 }
 
-// <<< CUSTOM
-// END CUSTOM

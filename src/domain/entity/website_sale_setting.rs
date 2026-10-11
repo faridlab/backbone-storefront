@@ -185,8 +185,6 @@ impl WebsiteSaleSetting {
         }
     }
 
-    // <<< CUSTOM METHODS START >>>
-    // <<< CUSTOM METHODS END >>>
 }
 
 impl super::Entity for WebsiteSaleSetting {

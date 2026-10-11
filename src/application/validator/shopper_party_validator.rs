@@ -16,9 +16,5 @@ pub type ShopperPartyValidator = EntityValidator<ShopperParty>;
 pub fn shopper_party_validator() -> ShopperPartyValidator {
     EntityValidator::new()
         .rule(RequiredString::new("email_normalized", |e: &ShopperParty| &e.email_normalized))
-    // <<< CUSTOM RULES
-    // END CUSTOM RULES
 }
 
-// <<< CUSTOM
-// END CUSTOM

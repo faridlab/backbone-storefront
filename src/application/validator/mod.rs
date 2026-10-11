@@ -27,5 +27,3 @@ pub use shopper_party_validator::{ShopperPartyValidator, shopper_party_validator
 pub use website_sale_setting_validator::{WebsiteSaleSettingValidator, website_sale_setting_validator};
 pub use wishlist_item_validator::{WishlistItemValidator, wishlist_item_validator};
 
-// <<< CUSTOM
-// END CUSTOM

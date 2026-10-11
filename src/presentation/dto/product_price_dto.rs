@@ -277,7 +277,7 @@ impl backbone_core::ApplyUpdateDto<UpdateProductPriceDto> for ProductPrice {
 // Custom DTOs
 // =============================================================================
 
-// <<< CUSTOM DTOs
 // Add custom DTOs specific to ProductPrice here.
 // This section will be preserved during regeneration.
 // >>> END CUSTOM DTOs
+

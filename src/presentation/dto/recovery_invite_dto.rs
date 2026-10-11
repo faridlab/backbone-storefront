@@ -270,7 +270,7 @@ impl backbone_core::ApplyUpdateDto<UpdateRecoveryInviteDto> for RecoveryInvite {
 // Custom DTOs
 // =============================================================================
 
-// <<< CUSTOM DTOs
 // Add custom DTOs specific to RecoveryInvite here.
 // This section will be preserved during regeneration.
 // >>> END CUSTOM DTOs
+

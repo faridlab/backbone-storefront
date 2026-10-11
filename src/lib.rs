@@ -24,8 +24,6 @@ pub mod application;
 pub mod presentation;
 pub mod seeders;
 pub mod exports;
-// <<< CUSTOM MODULES
-// END CUSTOM
 
 // Re-exports for convenience - Domain entities
 pub use domain::entity::*;
@@ -72,8 +70,6 @@ pub struct StorefrontModule {
     pub(crate) shopper_party_service: Arc<ShopperPartyService>,
     pub(crate) website_sale_setting_service: Arc<WebsiteSaleSettingService>,
     pub(crate) wishlist_item_service: Arc<WishlistItemService>,
-    // <<< CUSTOM FIELDS
-    // END CUSTOM
 }
 
 impl StorefrontModule {
@@ -156,15 +152,11 @@ impl StorefrontModule {
             .merge(create_wishlist_item_read_routes(self.wishlist_item_service.clone()))
     }
 
-    // <<< CUSTOM METHODS
-    // END CUSTOM
 }
 
 /// Builder for StorefrontModule
 pub struct StorefrontModuleBuilder {
     db_pool: Option<PgPool>,
-    // <<< CUSTOM BUILDER FIELDS
-    // END CUSTOM
 }
 
 impl StorefrontModuleBuilder {
@@ -172,8 +164,6 @@ impl StorefrontModuleBuilder {
     pub fn new() -> Self {
         Self {
             db_pool: None,
-            // <<< CUSTOM BUILDER DEFAULTS
-            // END CUSTOM
         }
     }
 
@@ -183,8 +173,6 @@ impl StorefrontModuleBuilder {
         self
     }
 
-    // <<< CUSTOM - custom builder methods
-    // END CUSTOM
 
     /// Build the module with configured dependencies
     pub fn build(self) -> anyhow::Result<StorefrontModule> {
@@ -231,8 +219,6 @@ impl StorefrontModuleBuilder {
         let wishlist_item_repository = Arc::new(WishlistItemRepository::new(db_pool.clone()));
         let wishlist_item_service = Arc::new(WishlistItemService::with_repository(wishlist_item_repository.clone()));
 
-        // <<< CUSTOM
-        // END CUSTOM
 
         Ok(StorefrontModule {
             cart_service,
@@ -245,8 +231,6 @@ impl StorefrontModuleBuilder {
             shopper_party_service,
             website_sale_setting_service,
             wishlist_item_service,
-            // <<< CUSTOM
-            // END CUSTOM
         })
     }
 }

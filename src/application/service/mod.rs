@@ -18,8 +18,6 @@ pub mod shopper_party_service;
 pub mod website_sale_setting_service;
 pub mod wishlist_item_service;
 
-// <<< CUSTOM
-// END CUSTOM
 
 pub use cart_service::CartService;
 pub use cart_line_service::CartLineService;
@@ -31,8 +29,6 @@ pub use recovery_invite_service::RecoveryInviteService;
 pub use shopper_party_service::ShopperPartyService;
 pub use website_sale_setting_service::WebsiteSaleSettingService;
 pub use wishlist_item_service::WishlistItemService;
-// <<< CUSTOM
-// END CUSTOM
 
 // This directory's extension (hand-written; ADR-0031).
 include!("mod.ext.rs");

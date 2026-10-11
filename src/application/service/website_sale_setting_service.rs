@@ -32,5 +32,3 @@ pub type WebsiteSaleSettingService = GenericCrudService<
     WebsiteSaleSettingRepository,
 >;
 
-// <<< CUSTOM
-// END CUSTOM

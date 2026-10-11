@@ -188,3 +188,4 @@ pub fn create_protected_checkout_session_routes<A: AuthMiddleware + Send + Sync 
             }
         }))
 }
+

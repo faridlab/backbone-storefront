@@ -18,5 +18,3 @@ use crate::domain::entity::ProductPrice;
 /// service. `PermitAllPolicy` is the safe default until then.
 pub type ProductPriceDomainPolicy = PermitAllPolicy<ProductPrice>;
 
-// <<< CUSTOM
-// END CUSTOM

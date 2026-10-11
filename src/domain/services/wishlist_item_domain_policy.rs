@@ -18,5 +18,3 @@ use crate::domain::entity::WishlistItem;
 /// service. `PermitAllPolicy` is the safe default until then.
 pub type WishlistItemDomainPolicy = PermitAllPolicy<WishlistItem>;
 
-// <<< CUSTOM
-// END CUSTOM

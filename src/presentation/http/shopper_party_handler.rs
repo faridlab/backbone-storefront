@@ -186,3 +186,4 @@ pub fn create_protected_shopper_party_routes<A: AuthMiddleware + Send + Sync + '
             }
         }))
 }
+

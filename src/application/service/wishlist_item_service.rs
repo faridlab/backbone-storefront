@@ -32,5 +32,3 @@ pub type WishlistItemService = GenericCrudService<
     WishlistItemRepository,
 >;
 
-// <<< CUSTOM
-// END CUSTOM

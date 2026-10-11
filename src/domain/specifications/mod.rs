@@ -17,5 +17,3 @@ pub mod shopper_party_specification;
 pub mod website_sale_setting_specification;
 pub mod wishlist_item_specification;
 
-// <<< CUSTOM
-// END CUSTOM

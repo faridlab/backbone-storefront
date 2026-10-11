@@ -18,5 +18,3 @@ use crate::domain::entity::CheckoutSession;
 /// service. `PermitAllPolicy` is the safe default until then.
 pub type CheckoutSessionDomainPolicy = PermitAllPolicy<CheckoutSession>;
 
-// <<< CUSTOM
-// END CUSTOM

@@ -11,8 +11,6 @@ use crate::domain::entity::RecoveryInvite;
 /// enum containing a `Crud(CrudEvent<RecoveryInvite>)` variant.
 pub type RecoveryInviteEvent = CrudEvent<RecoveryInvite>;
 
-// <<< CUSTOM
-// END CUSTOM
 
 use backbone_messaging::{CrudEventPublisher, NoOpCrudEventPublisher};
 use std::sync::Arc;

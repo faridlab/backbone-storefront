@@ -44,5 +44,3 @@ pub use website_sale_setting_event_handlers::WebsiteSaleSettingEventHandler;
 pub use wishlist_item_events::{WishlistItemEvent, WishlistItemEventPublisher, NoopWishlistItemEventPublisher};
 pub use wishlist_item_event_handlers::WishlistItemEventHandler;
 
-// <<< CUSTOM
-// END CUSTOM

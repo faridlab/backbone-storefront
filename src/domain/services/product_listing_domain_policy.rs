@@ -18,5 +18,3 @@ use crate::domain::entity::ProductListing;
 /// service. `PermitAllPolicy` is the safe default until then.
 pub type ProductListingDomainPolicy = PermitAllPolicy<ProductListing>;
 
-// <<< CUSTOM
-// END CUSTOM

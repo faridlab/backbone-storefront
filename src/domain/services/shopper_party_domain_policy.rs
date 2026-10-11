@@ -18,5 +18,3 @@ use crate::domain::entity::ShopperParty;
 /// service. `PermitAllPolicy` is the safe default until then.
 pub type ShopperPartyDomainPolicy = PermitAllPolicy<ShopperParty>;
 
-// <<< CUSTOM
-// END CUSTOM

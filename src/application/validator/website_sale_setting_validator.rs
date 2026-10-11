@@ -16,9 +16,5 @@ pub type WebsiteSaleSettingValidator = EntityValidator<WebsiteSaleSetting>;
 pub fn website_sale_setting_validator() -> WebsiteSaleSettingValidator {
     EntityValidator::new()
         .rule(OptionalNotBlank::new("recovery_template_ref", |e: &WebsiteSaleSetting| e.recovery_template_ref.as_deref()))
-    // <<< CUSTOM RULES
-    // END CUSTOM RULES
 }
 
-// <<< CUSTOM
-// END CUSTOM

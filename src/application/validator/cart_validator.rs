@@ -17,9 +17,5 @@ pub fn cart_validator() -> CartValidator {
     EntityValidator::new()
         .rule(OptionalNotBlank::new("coupon_code", |e: &Cart| e.coupon_code.as_deref()))
         .rule(RequiredString::new("fulfillment_mode", |e: &Cart| &e.fulfillment_mode))
-    // <<< CUSTOM RULES
-    // END CUSTOM RULES
 }
 
-// <<< CUSTOM
-// END CUSTOM

@@ -32,5 +32,3 @@ pub type PickupLocationService = GenericCrudService<
     PickupLocationRepository,
 >;
 
-// <<< CUSTOM
-// END CUSTOM

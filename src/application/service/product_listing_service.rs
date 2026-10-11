@@ -32,5 +32,3 @@ pub type ProductListingService = GenericCrudService<
     ProductListingRepository,
 >;
 
-// <<< CUSTOM
-// END CUSTOM

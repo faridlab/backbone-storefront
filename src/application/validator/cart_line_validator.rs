@@ -14,10 +14,6 @@ pub type CartLineValidator = EntityValidator<CartLine>;
 /// Build a validator for CartLine with all schema-defined field rules.
 pub fn cart_line_validator() -> CartLineValidator {
     EntityValidator::new()
-    // <<< CUSTOM RULES
-    // END CUSTOM RULES
         // No schema-derived rules — add custom rules above.
 }
 
-// <<< CUSTOM
-// END CUSTOM

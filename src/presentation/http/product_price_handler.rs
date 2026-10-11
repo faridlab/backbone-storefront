@@ -187,3 +187,4 @@ pub fn create_protected_product_price_routes<A: AuthMiddleware + Send + Sync + '
             }
         }))
 }
+
