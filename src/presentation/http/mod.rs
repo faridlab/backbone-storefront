@@ -17,8 +17,6 @@ pub mod website_sale_setting_handler;
 pub mod wishlist_item_handler;
 
 // <<< CUSTOM
-pub mod admin_routes;
-pub mod public_routes;
 // END CUSTOM
 
 // Re-exports
@@ -33,8 +31,7 @@ pub use shopper_party_handler::{create_shopper_party_routes, create_shopper_part
 pub use website_sale_setting_handler::{create_website_sale_setting_routes, create_website_sale_setting_read_routes, create_website_sale_setting_write_routes};
 pub use wishlist_item_handler::{create_wishlist_item_routes, create_wishlist_item_read_routes, create_wishlist_item_write_routes};
 // <<< CUSTOM
-pub use admin_routes::{storefront_admin_routes, StorefrontAdminState, StorefrontActor};
-pub use public_routes::{
-    storefront_error_response, storefront_public_routes, StorefrontPublicState, VISITOR_TOKEN_HEADER,
-};
 // END CUSTOM
+
+// This directory's extension (hand-written; ADR-0031).
+include!("mod.ext.rs");
