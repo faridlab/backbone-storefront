@@ -226,9 +226,9 @@ dependencies = [
 
 [[package]]
 name = "backbone-auditlog"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea750e8ce014d6a2bcd3c754afaeccbc9e21ffcee4df1d766b7fb0a1ab9d59c6"
+checksum = "0c02162105aece07a5bbc9f1a8b6f5f4c5ce3cfe4ce0981790f8b95d7fdf46e9"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -401,9 +401,9 @@ dependencies = [
 
 [[package]]
 name = "backbone-payment-gateway"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9e26cd759a4e78629a03a7817e64e56ba60b6fe93470f4c8ea795b5b9d83a05"
+checksum = "5778022828b3f7c0ed2ec79c035b220a98a5d02f3afab422543cf75e9d729f47"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -439,9 +439,9 @@ dependencies = [
 
 [[package]]
 name = "backbone-portal"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b13ef79a46fea79cb5d88b9361d9681a320393776eca53bcabcf4061c090162a"
+checksum = "d5867141c2450c5aa7015cebbab74a5c294c8df8e5a01d74740eb33f02e348a7"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -494,9 +494,9 @@ dependencies = [
 
 [[package]]
 name = "backbone-sapiens"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84d38220d6b043ad80e6e482496e50eadd62f8c80b5e8b498c8f74491537b14a"
+checksum = "d79f944c9030520b432667683070549e9971ccb4976302987b11f9ef66251c9d"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -543,9 +543,9 @@ dependencies = [
 
 [[package]]
 name = "backbone-selling"
-version = "0.14.0"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ff5e72a3cffe2ae9c6777d2383ca25a19be47dd73d83d0bd8944f551bc832f2"
+checksum = "2725944b9b5785e1cf2be0e9605d4684ca4f86c42c48f6662e07c54e21340399"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -579,7 +579,7 @@ dependencies = [
 
 [[package]]
 name = "backbone-storefront"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -617,9 +617,9 @@ dependencies = [
 
 [[package]]
 name = "backbone-website"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6deeb7b39090ab0722c8035018f811b181e61d9ee78712c64a6a9d4fffb6f633"
+checksum = "c3ff4b8cd9778fb5ea272f5e495359c6374d50583cd39da1284e26e374cfa84f"
 dependencies = [
  "anyhow",
  "async-trait",
