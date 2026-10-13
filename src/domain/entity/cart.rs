@@ -286,6 +286,9 @@ impl backbone_orm::EntityRepoMeta for Cart {
     fn search_fields() -> &'static [&'static str] {
         &["fulfillment_mode"]
     }
+    fn relations() -> &'static [(&'static str, &'static str, &'static str)] {
+        &[("pickupLocation", "pickup_locations", "pickupLocationId")]
+    }
 }
 
 /// Builder for Cart entity

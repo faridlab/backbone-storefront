@@ -299,7 +299,7 @@ impl backbone_orm::EntityRepoMeta for CheckoutSession {
         &[]
     }
     fn relations() -> &'static [(&'static str, &'static str, &'static str)] {
-        &[("cart", "carts", "cartId")]
+        &[("cart", "carts", "cartId"), ("pickupLocation", "pickup_locations", "pickupLocationId")]
     }
 }
 
