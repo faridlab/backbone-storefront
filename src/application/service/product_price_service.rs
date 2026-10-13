@@ -32,3 +32,49 @@ pub type ProductPriceService = GenericCrudService<
     ProductPriceRepository,
 >;
 
+/// The rules the schema declares for ProductPrice, checked against the row a create or update
+/// would store. The generated build attaches it to [`ProductPriceService`]. A refusing rule's
+/// break answers 422; a rule in shadow is logged under `backbone::write_guard` and the
+/// write goes ahead.
+pub struct ProductPriceRowRules;
+
+#[async_trait::async_trait]
+impl backbone_core::write_guard::WriteGuard<ProductPrice> for ProductPriceRowRules {
+    async fn check(
+        &self,
+        ctx: &backbone_core::write_guard::WriteCtx<'_, ProductPrice>,
+    ) -> backbone_core::write_guard::GuardOutcome {
+        use backbone_core::row_rule as r;
+        use backbone_core::violation::Violation;
+        use backbone_core::write_guard::{GuardOutcome, WriteKind};
+        let (create, update) = (ctx.kind == WriteKind::Create, ctx.kind == WriteKind::Update);
+        let Some(after) = ctx.after.filter(|_| create || update) else {
+            return GuardOutcome::allow();
+        };
+        let Ok(row) = serde_json::to_value(after) else {
+            return GuardOutcome::allow();
+        };
+        let row = &row;
+        let old = ctx.before.and_then(|b| serde_json::to_value(b).ok());
+        let mut shadow = Vec::new();
+        let mut refuse = Vec::new();
+        // `website_id_required` (@required on ProductPrice.website_id)
+        if (create || (update && r::changed(old.as_ref(), row, &["website_id"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "website_id")), r::not(r::is_empty(r::trim(r::field(row, "website_id")))))) {
+            refuse.push(Violation::new("website_id", "required", "website_id is required"));
+        }
+        // `item_id_required` (@required on ProductPrice.item_id)
+        if (create || (update && r::changed(old.as_ref(), row, &["item_id"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "item_id")), r::not(r::is_empty(r::trim(r::field(row, "item_id")))))) {
+            refuse.push(Violation::new("item_id", "required", "item_id is required"));
+        }
+        // `list_price_non_negative` (@non_negative on ProductPrice.list_price)
+        if (create || (update && r::changed(old.as_ref(), row, &["list_price"]))) && !r::holds(&r::ge(r::field(row, "list_price"), r::Val::Num(0.0_f64))) {
+            shadow.push(Violation::new("list_price", "non_negative", "list_price must not be negative"));
+        }
+        // `currency_max_length` (@max(3) on ProductPrice.currency)
+        if (create || (update && r::changed(old.as_ref(), row, &["currency"]))) && !r::holds(&r::le(r::length(r::field(row, "currency")), r::Val::Num(3.0_f64))) {
+            shadow.push(Violation::new("currency", "max_length", "currency must be at most 3 characters").with_param("max", 3_i64));
+        }
+        GuardOutcome { refuse, shadow }
+    }
+}
+

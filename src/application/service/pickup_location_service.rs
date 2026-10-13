@@ -32,3 +32,65 @@ pub type PickupLocationService = GenericCrudService<
     PickupLocationRepository,
 >;
 
+/// The rules the schema declares for PickupLocation, checked against the row a create or update
+/// would store. The generated build attaches it to [`PickupLocationService`]. A refusing rule's
+/// break answers 422; a rule in shadow is logged under `backbone::write_guard` and the
+/// write goes ahead.
+pub struct PickupLocationRowRules;
+
+#[async_trait::async_trait]
+impl backbone_core::write_guard::WriteGuard<PickupLocation> for PickupLocationRowRules {
+    async fn check(
+        &self,
+        ctx: &backbone_core::write_guard::WriteCtx<'_, PickupLocation>,
+    ) -> backbone_core::write_guard::GuardOutcome {
+        use backbone_core::row_rule as r;
+        use backbone_core::violation::Violation;
+        use backbone_core::write_guard::{GuardOutcome, WriteKind};
+        let (create, update) = (ctx.kind == WriteKind::Create, ctx.kind == WriteKind::Update);
+        let Some(after) = ctx.after.filter(|_| create || update) else {
+            return GuardOutcome::allow();
+        };
+        let Ok(row) = serde_json::to_value(after) else {
+            return GuardOutcome::allow();
+        };
+        let row = &row;
+        let old = ctx.before.and_then(|b| serde_json::to_value(b).ok());
+        let mut shadow = Vec::new();
+        let mut refuse = Vec::new();
+        // `website_id_required` (@required on PickupLocation.website_id)
+        if (create || (update && r::changed(old.as_ref(), row, &["website_id"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "website_id")), r::not(r::is_empty(r::trim(r::field(row, "website_id")))))) {
+            refuse.push(Violation::new("website_id", "required", "website_id is required"));
+        }
+        // `name_required` (@required on PickupLocation.name)
+        if (create || (update && r::changed(old.as_ref(), row, &["name"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "name")), r::not(r::is_empty(r::trim(r::field(row, "name")))))) {
+            refuse.push(Violation::new("name", "required", "name is required"));
+        }
+        // `name_max_length` (@max(120) on PickupLocation.name)
+        if (create || (update && r::changed(old.as_ref(), row, &["name"]))) && !r::holds(&r::le(r::length(r::field(row, "name")), r::Val::Num(120.0_f64))) {
+            shadow.push(Violation::new("name", "max_length", "name must be at most 120 characters").with_param("max", 120_i64));
+        }
+        // `address_line1_max_length` (@max(200) on PickupLocation.address_line1)
+        if (create || (update && r::changed(old.as_ref(), row, &["address_line1"]))) && !r::holds(&r::le(r::length(r::field(row, "address_line1")), r::Val::Num(200.0_f64))) {
+            shadow.push(Violation::new("address_line1", "max_length", "address_line1 must be at most 200 characters").with_param("max", 200_i64));
+        }
+        // `city_max_length` (@max(80) on PickupLocation.city)
+        if (create || (update && r::changed(old.as_ref(), row, &["city"]))) && !r::holds(&r::le(r::length(r::field(row, "city")), r::Val::Num(80.0_f64))) {
+            shadow.push(Violation::new("city", "max_length", "city must be at most 80 characters").with_param("max", 80_i64));
+        }
+        // `postal_code_max_length` (@max(20) on PickupLocation.postal_code)
+        if (create || (update && r::changed(old.as_ref(), row, &["postal_code"]))) && !r::holds(&r::le(r::length(r::field(row, "postal_code")), r::Val::Num(20.0_f64))) {
+            shadow.push(Violation::new("postal_code", "max_length", "postal_code must be at most 20 characters").with_param("max", 20_i64));
+        }
+        // `country_required` (@required on PickupLocation.country)
+        if (create || (update && r::changed(old.as_ref(), row, &["country"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "country")), r::not(r::is_empty(r::trim(r::field(row, "country")))))) {
+            refuse.push(Violation::new("country", "required", "country is required"));
+        }
+        // `country_max_length` (@max(2) on PickupLocation.country)
+        if (create || (update && r::changed(old.as_ref(), row, &["country"]))) && !r::holds(&r::le(r::length(r::field(row, "country")), r::Val::Num(2.0_f64))) {
+            shadow.push(Violation::new("country", "max_length", "country must be at most 2 characters").with_param("max", 2_i64));
+        }
+        GuardOutcome { refuse, shadow }
+    }
+}
+
