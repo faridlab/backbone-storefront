@@ -56,7 +56,7 @@ impl backbone_core::write_guard::WriteGuard<WishlistItem> for WishlistItemRowRul
         };
         let row = &row;
         let old = ctx.before.and_then(|b| serde_json::to_value(b).ok());
-        let mut shadow = Vec::new();
+        let shadow = Vec::new();
         let mut refuse = Vec::new();
         // `website_id_required` (@required on WishlistItem.website_id)
         if (create || (update && r::changed(old.as_ref(), row, &["website_id"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "website_id")), r::not(r::is_empty(r::trim(r::field(row, "website_id")))))) {
@@ -72,7 +72,7 @@ impl backbone_core::write_guard::WriteGuard<WishlistItem> for WishlistItemRowRul
         }
         // `contact_email_max_length` (@max(200) on WishlistItem.contact_email)
         if (create || (update && r::changed(old.as_ref(), row, &["contact_email"]))) && !r::holds(&r::le(r::length(r::field(row, "contact_email")), r::Val::Num(200.0_f64))) {
-            shadow.push(Violation::new("contact_email", "max_length", "contact_email must be at most 200 characters").with_param("max", 200_i64));
+            refuse.push(Violation::new("contact_email", "max_length", "contact_email must be at most 200 characters").with_param("max", 200_i64));
         }
         GuardOutcome { refuse, shadow }
     }

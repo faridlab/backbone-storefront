@@ -56,7 +56,7 @@ impl backbone_core::write_guard::WriteGuard<CheckoutSession> for CheckoutSession
         };
         let row = &row;
         let old = ctx.before.and_then(|b| serde_json::to_value(b).ok());
-        let mut shadow = Vec::new();
+        let shadow = Vec::new();
         let mut refuse = Vec::new();
         // `cart_id_required` (@required on CheckoutSession.cart_id)
         if (create || (update && r::changed(old.as_ref(), row, &["cart_id"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "cart_id")), r::not(r::is_empty(r::trim(r::field(row, "cart_id")))))) {
@@ -68,15 +68,15 @@ impl backbone_core::write_guard::WriteGuard<CheckoutSession> for CheckoutSession
         }
         // `provider_code_max_length` (@max(20) on CheckoutSession.provider_code)
         if (create || (update && r::changed(old.as_ref(), row, &["provider_code"]))) && !r::holds(&r::le(r::length(r::field(row, "provider_code")), r::Val::Num(20.0_f64))) {
-            shadow.push(Violation::new("provider_code", "max_length", "provider_code must be at most 20 characters").with_param("max", 20_i64));
+            refuse.push(Violation::new("provider_code", "max_length", "provider_code must be at most 20 characters").with_param("max", 20_i64));
         }
         // `provider_reference_max_length` (@max(80) on CheckoutSession.provider_reference)
         if (create || (update && r::changed(old.as_ref(), row, &["provider_reference"]))) && !r::holds(&r::le(r::length(r::field(row, "provider_reference")), r::Val::Num(80.0_f64))) {
-            shadow.push(Violation::new("provider_reference", "max_length", "provider_reference must be at most 80 characters").with_param("max", 80_i64));
+            refuse.push(Violation::new("provider_reference", "max_length", "provider_reference must be at most 80 characters").with_param("max", 80_i64));
         }
         // `amount_total_non_negative` (@non_negative on CheckoutSession.amount_total)
         if (create || (update && r::changed(old.as_ref(), row, &["amount_total"]))) && !r::holds(&r::ge(r::field(row, "amount_total"), r::Val::Num(0.0_f64))) {
-            shadow.push(Violation::new("amount_total", "non_negative", "amount_total must not be negative"));
+            refuse.push(Violation::new("amount_total", "non_negative", "amount_total must not be negative"));
         }
         GuardOutcome { refuse, shadow }
     }

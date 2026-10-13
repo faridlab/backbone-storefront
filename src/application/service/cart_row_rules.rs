@@ -29,7 +29,7 @@ impl backbone_core::write_guard::WriteGuard<Cart> for CartRowRules {
         };
         let row = &row;
         let old = ctx.before.and_then(|b| serde_json::to_value(b).ok());
-        let mut shadow = Vec::new();
+        let shadow = Vec::new();
         let mut refuse = Vec::new();
         // `website_id_required` (@required on Cart.website_id)
         if (create || (update && r::changed(old.as_ref(), row, &["website_id"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "website_id")), r::not(r::is_empty(r::trim(r::field(row, "website_id")))))) {
@@ -41,11 +41,11 @@ impl backbone_core::write_guard::WriteGuard<Cart> for CartRowRules {
         }
         // `coupon_code_max_length` (@max(60) on Cart.coupon_code)
         if (create || (update && r::changed(old.as_ref(), row, &["coupon_code"]))) && !r::holds(&r::le(r::length(r::field(row, "coupon_code")), r::Val::Num(60.0_f64))) {
-            shadow.push(Violation::new("coupon_code", "max_length", "coupon_code must be at most 60 characters").with_param("max", 60_i64));
+            refuse.push(Violation::new("coupon_code", "max_length", "coupon_code must be at most 60 characters").with_param("max", 60_i64));
         }
         // `fulfillment_mode_max_length` (@max(20) on Cart.fulfillment_mode)
         if (create || (update && r::changed(old.as_ref(), row, &["fulfillment_mode"]))) && !r::holds(&r::le(r::length(r::field(row, "fulfillment_mode")), r::Val::Num(20.0_f64))) {
-            shadow.push(Violation::new("fulfillment_mode", "max_length", "fulfillment_mode must be at most 20 characters").with_param("max", 20_i64));
+            refuse.push(Violation::new("fulfillment_mode", "max_length", "fulfillment_mode must be at most 20 characters").with_param("max", 20_i64));
         }
         GuardOutcome { refuse, shadow }
     }

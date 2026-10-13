@@ -56,7 +56,7 @@ impl backbone_core::write_guard::WriteGuard<RecoveryInvite> for RecoveryInviteRo
         };
         let row = &row;
         let old = ctx.before.and_then(|b| serde_json::to_value(b).ok());
-        let mut shadow = Vec::new();
+        let shadow = Vec::new();
         let mut refuse = Vec::new();
         // `cart_id_required` (@required on RecoveryInvite.cart_id)
         if (create || (update && r::changed(old.as_ref(), row, &["cart_id"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "cart_id")), r::not(r::is_empty(r::trim(r::field(row, "cart_id")))))) {
@@ -68,11 +68,11 @@ impl backbone_core::write_guard::WriteGuard<RecoveryInvite> for RecoveryInviteRo
         }
         // `template_ref_max_length` (@max(200) on RecoveryInvite.template_ref)
         if (create || (update && r::changed(old.as_ref(), row, &["template_ref"]))) && !r::holds(&r::le(r::length(r::field(row, "template_ref")), r::Val::Num(200.0_f64))) {
-            shadow.push(Violation::new("template_ref", "max_length", "template_ref must be at most 200 characters").with_param("max", 200_i64));
+            refuse.push(Violation::new("template_ref", "max_length", "template_ref must be at most 200 characters").with_param("max", 200_i64));
         }
         // `delivery_state_max_length` (@max(16) on RecoveryInvite.delivery_state)
         if (create || (update && r::changed(old.as_ref(), row, &["delivery_state"]))) && !r::holds(&r::le(r::length(r::field(row, "delivery_state")), r::Val::Num(16.0_f64))) {
-            shadow.push(Violation::new("delivery_state", "max_length", "delivery_state must be at most 16 characters").with_param("max", 16_i64));
+            refuse.push(Violation::new("delivery_state", "max_length", "delivery_state must be at most 16 characters").with_param("max", 16_i64));
         }
         GuardOutcome { refuse, shadow }
     }

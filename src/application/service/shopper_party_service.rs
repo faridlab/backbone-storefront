@@ -56,7 +56,7 @@ impl backbone_core::write_guard::WriteGuard<ShopperParty> for ShopperPartyRowRul
         };
         let row = &row;
         let old = ctx.before.and_then(|b| serde_json::to_value(b).ok());
-        let mut shadow = Vec::new();
+        let shadow = Vec::new();
         let mut refuse = Vec::new();
         // `email_normalized_required` (@required on ShopperParty.email_normalized)
         if (create || (update && r::changed(old.as_ref(), row, &["email_normalized"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "email_normalized")), r::not(r::is_empty(r::trim(r::field(row, "email_normalized")))))) {
@@ -64,7 +64,7 @@ impl backbone_core::write_guard::WriteGuard<ShopperParty> for ShopperPartyRowRul
         }
         // `email_normalized_max_length` (@max(320) on ShopperParty.email_normalized)
         if (create || (update && r::changed(old.as_ref(), row, &["email_normalized"]))) && !r::holds(&r::le(r::length(r::field(row, "email_normalized")), r::Val::Num(320.0_f64))) {
-            shadow.push(Violation::new("email_normalized", "max_length", "email_normalized must be at most 320 characters").with_param("max", 320_i64));
+            refuse.push(Violation::new("email_normalized", "max_length", "email_normalized must be at most 320 characters").with_param("max", 320_i64));
         }
         // `party_id_required` (@required on ShopperParty.party_id)
         if (create || (update && r::changed(old.as_ref(), row, &["party_id"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "party_id")), r::not(r::is_empty(r::trim(r::field(row, "party_id")))))) {
