@@ -41,5 +41,85 @@ pub use shopper_party_service::ShopperPartyRowRules;
 pub use website_sale_setting_service::WebsiteSaleSettingRowRules;
 pub use wishlist_item_service::WishlistItemRowRules;
 
+/// A `CartService` over `repository` with its write guard attached: the way to build it, so its writes are
+/// served only with the rules the schema declares.
+pub fn build_cart_service(
+    repository: std::sync::Arc<crate::infrastructure::persistence::CartRepository>,
+) -> CartService {
+    CartService::with_repository(repository).with_guard(std::sync::Arc::new(CartRowRules))
+}
+
+/// A `CartLineService` over `repository` with its write guard attached: the way to build it, so its writes are
+/// served only with the rules the schema declares.
+pub fn build_cart_line_service(
+    repository: std::sync::Arc<crate::infrastructure::persistence::CartLineRepository>,
+) -> CartLineService {
+    CartLineService::with_repository(repository).with_guard(std::sync::Arc::new(CartLineRowRules))
+}
+
+/// A `CheckoutSessionService` over `repository` with its write guard attached: the way to build it, so its writes are
+/// served only with the rules the schema declares.
+pub fn build_checkout_session_service(
+    repository: std::sync::Arc<crate::infrastructure::persistence::CheckoutSessionRepository>,
+) -> CheckoutSessionService {
+    CheckoutSessionService::with_repository(repository).with_guard(std::sync::Arc::new(CheckoutSessionRowRules))
+}
+
+/// A `PickupLocationService` over `repository` with its write guard attached: the way to build it, so its writes are
+/// served only with the rules the schema declares.
+pub fn build_pickup_location_service(
+    repository: std::sync::Arc<crate::infrastructure::persistence::PickupLocationRepository>,
+) -> PickupLocationService {
+    PickupLocationService::with_repository(repository).with_guard(std::sync::Arc::new(PickupLocationRowRules))
+}
+
+/// A `ProductListingService` over `repository` with its write guard attached: the way to build it, so its writes are
+/// served only with the rules the schema declares.
+pub fn build_product_listing_service(
+    repository: std::sync::Arc<crate::infrastructure::persistence::ProductListingRepository>,
+) -> ProductListingService {
+    ProductListingService::with_repository(repository).with_guard(std::sync::Arc::new(ProductListingRowRules))
+}
+
+/// A `ProductPriceService` over `repository` with its write guard attached: the way to build it, so its writes are
+/// served only with the rules the schema declares.
+pub fn build_product_price_service(
+    repository: std::sync::Arc<crate::infrastructure::persistence::ProductPriceRepository>,
+) -> ProductPriceService {
+    ProductPriceService::with_repository(repository).with_guard(std::sync::Arc::new(ProductPriceRowRules))
+}
+
+/// A `RecoveryInviteService` over `repository` with its write guard attached: the way to build it, so its writes are
+/// served only with the rules the schema declares.
+pub fn build_recovery_invite_service(
+    repository: std::sync::Arc<crate::infrastructure::persistence::RecoveryInviteRepository>,
+) -> RecoveryInviteService {
+    RecoveryInviteService::with_repository(repository).with_guard(std::sync::Arc::new(RecoveryInviteRowRules))
+}
+
+/// A `ShopperPartyService` over `repository` with its write guard attached: the way to build it, so its writes are
+/// served only with the rules the schema declares.
+pub fn build_shopper_party_service(
+    repository: std::sync::Arc<crate::infrastructure::persistence::ShopperPartyRepository>,
+) -> ShopperPartyService {
+    ShopperPartyService::with_repository(repository).with_guard(std::sync::Arc::new(ShopperPartyRowRules))
+}
+
+/// A `WebsiteSaleSettingService` over `repository` with its write guard attached: the way to build it, so its writes are
+/// served only with the rules the schema declares.
+pub fn build_website_sale_setting_service(
+    repository: std::sync::Arc<crate::infrastructure::persistence::WebsiteSaleSettingRepository>,
+) -> WebsiteSaleSettingService {
+    WebsiteSaleSettingService::with_repository(repository).with_guard(std::sync::Arc::new(WebsiteSaleSettingRowRules))
+}
+
+/// A `WishlistItemService` over `repository` with its write guard attached: the way to build it, so its writes are
+/// served only with the rules the schema declares.
+pub fn build_wishlist_item_service(
+    repository: std::sync::Arc<crate::infrastructure::persistence::WishlistItemRepository>,
+) -> WishlistItemService {
+    WishlistItemService::with_repository(repository).with_guard(std::sync::Arc::new(WishlistItemRowRules))
+}
+
 // This directory's extension (hand-written; ADR-0031).
 include!("mod.ext.rs");

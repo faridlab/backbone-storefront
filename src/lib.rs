@@ -181,43 +181,43 @@ impl StorefrontModuleBuilder {
 
         // Cart service
         let cart_repository = Arc::new(CartRepository::new(db_pool.clone()));
-        let cart_service = Arc::new(CartService::with_repository(cart_repository.clone()).with_guard(Arc::new(crate::application::service::CartRowRules)));
+        let cart_service = Arc::new(crate::application::service::build_cart_service(cart_repository.clone()));
 
         // CartLine service
         let cart_line_repository = Arc::new(CartLineRepository::new(db_pool.clone()));
-        let cart_line_service = Arc::new(CartLineService::with_repository(cart_line_repository.clone()).with_guard(Arc::new(crate::application::service::CartLineRowRules)));
+        let cart_line_service = Arc::new(crate::application::service::build_cart_line_service(cart_line_repository.clone()));
 
         // CheckoutSession service
         let checkout_session_repository = Arc::new(CheckoutSessionRepository::new(db_pool.clone()));
-        let checkout_session_service = Arc::new(CheckoutSessionService::with_repository(checkout_session_repository.clone()).with_guard(Arc::new(crate::application::service::CheckoutSessionRowRules)));
+        let checkout_session_service = Arc::new(crate::application::service::build_checkout_session_service(checkout_session_repository.clone()));
 
         // PickupLocation service
         let pickup_location_repository = Arc::new(PickupLocationRepository::new(db_pool.clone()));
-        let pickup_location_service = Arc::new(PickupLocationService::with_repository(pickup_location_repository.clone()).with_guard(Arc::new(crate::application::service::PickupLocationRowRules)));
+        let pickup_location_service = Arc::new(crate::application::service::build_pickup_location_service(pickup_location_repository.clone()));
 
         // ProductListing service
         let product_listing_repository = Arc::new(ProductListingRepository::new(db_pool.clone()));
-        let product_listing_service = Arc::new(ProductListingService::with_repository(product_listing_repository.clone()).with_guard(Arc::new(crate::application::service::ProductListingRowRules)));
+        let product_listing_service = Arc::new(crate::application::service::build_product_listing_service(product_listing_repository.clone()));
 
         // ProductPrice service
         let product_price_repository = Arc::new(ProductPriceRepository::new(db_pool.clone()));
-        let product_price_service = Arc::new(ProductPriceService::with_repository(product_price_repository.clone()).with_guard(Arc::new(crate::application::service::ProductPriceRowRules)));
+        let product_price_service = Arc::new(crate::application::service::build_product_price_service(product_price_repository.clone()));
 
         // RecoveryInvite service
         let recovery_invite_repository = Arc::new(RecoveryInviteRepository::new(db_pool.clone()));
-        let recovery_invite_service = Arc::new(RecoveryInviteService::with_repository(recovery_invite_repository.clone()).with_guard(Arc::new(crate::application::service::RecoveryInviteRowRules)));
+        let recovery_invite_service = Arc::new(crate::application::service::build_recovery_invite_service(recovery_invite_repository.clone()));
 
         // ShopperParty service
         let shopper_party_repository = Arc::new(ShopperPartyRepository::new(db_pool.clone()));
-        let shopper_party_service = Arc::new(ShopperPartyService::with_repository(shopper_party_repository.clone()).with_guard(Arc::new(crate::application::service::ShopperPartyRowRules)));
+        let shopper_party_service = Arc::new(crate::application::service::build_shopper_party_service(shopper_party_repository.clone()));
 
         // WebsiteSaleSetting service
         let website_sale_setting_repository = Arc::new(WebsiteSaleSettingRepository::new(db_pool.clone()));
-        let website_sale_setting_service = Arc::new(WebsiteSaleSettingService::with_repository(website_sale_setting_repository.clone()).with_guard(Arc::new(crate::application::service::WebsiteSaleSettingRowRules)));
+        let website_sale_setting_service = Arc::new(crate::application::service::build_website_sale_setting_service(website_sale_setting_repository.clone()));
 
         // WishlistItem service
         let wishlist_item_repository = Arc::new(WishlistItemRepository::new(db_pool.clone()));
-        let wishlist_item_service = Arc::new(WishlistItemService::with_repository(wishlist_item_repository.clone()).with_guard(Arc::new(crate::application::service::WishlistItemRowRules)));
+        let wishlist_item_service = Arc::new(crate::application::service::build_wishlist_item_service(wishlist_item_repository.clone()));
 
 
         Ok(StorefrontModule {
