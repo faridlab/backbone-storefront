@@ -39,7 +39,6 @@ pub struct CreateCartDto {
     pub portal_user_id: Option<Uuid>,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "party_id")]
     pub party_id: Option<Uuid>,
-    pub state: StorefrontCartState,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "coupon_code")]
     pub coupon_code: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "delivery_carrier_id")]
@@ -267,7 +266,7 @@ impl From<CreateCartDto> for Cart {
             visitor_id: dto.visitor_id,
             portal_user_id: dto.portal_user_id,
             party_id: dto.party_id,
-            state: dto.state,
+            state: StorefrontCartState::Open,
             coupon_code: dto.coupon_code,
             delivery_carrier_id: dto.delivery_carrier_id,
             fulfillment_mode: dto.fulfillment_mode,

@@ -48,7 +48,6 @@ pub struct CreateCheckoutSessionDto {
     pub amount_total: Decimal,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "pickup_location_id")]
     pub pickup_location_id: Option<Uuid>,
-    pub state: StorefrontCheckoutState,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "placed_at")]
     pub placed_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "settled_at")]
@@ -276,7 +275,7 @@ impl From<CreateCheckoutSessionDto> for CheckoutSession {
             provider_reference: dto.provider_reference,
             amount_total: dto.amount_total,
             pickup_location_id: dto.pickup_location_id,
-            state: dto.state,
+            state: StorefrontCheckoutState::PendingPayment,
             placed_at: dto.placed_at,
             settled_at: dto.settled_at,
             metadata: AuditMetadata::default(),
