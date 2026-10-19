@@ -1,6 +1,6 @@
 [package]
 name = "backbone-storefront"
-version = "0.10.0"
+version = "0.10.1"
 edition = "2021"
 description = "Server-authoritative eCommerce core: identity-bound carts, per-website listings and prices, locked checkout through the payment gateway, Click & Collect, wishlists, comparisons and back-in-stock requests"
 license = "MIT OR Apache-2.0"
@@ -22,8 +22,8 @@ utoipa = { version = "5", optional = true, features = ["chrono", "uuid", "decima
 # resolved graph resolves to this one tag).
 # -----------------------------------------------------------------------------
 backbone-auditlog = { version = "0.7.0" }
-backbone-core = { version = "3.7.0", features = ["postgres"] }
-backbone-orm = { version = "3.0.0" }
+backbone-core = { version = " 3.18.0", features = ["postgres"] }
+backbone-orm = { version = " 3.18.0" }
 backbone-auth = { version = "3.0.0" }
 backbone-rate-limit = { version = "3.0.0" }
 # The generated event scaffolding (src/domain/event/*.rs — CrudEvent /
