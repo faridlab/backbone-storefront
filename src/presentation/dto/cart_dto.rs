@@ -44,12 +44,16 @@ pub struct CreateCartDto {
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "delivery_carrier_id")]
     pub delivery_carrier_id: Option<Uuid>,
     #[cfg_attr(feature = "openapi", schema(example = "example"))]
-    #[serde(alias = "fulfillment_mode")]
+    #[serde(default = "default_create_cart_fulfillment_mode", alias = "fulfillment_mode")]
     pub fulfillment_mode: String,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "pickup_location_id")]
     pub pickup_location_id: Option<Uuid>,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "placed_at")]
     pub placed_at: Option<DateTime<Utc>>,
+}
+
+fn default_create_cart_fulfillment_mode() -> String {
+    "delivery".to_string()
 }
 
 // =============================================================================
@@ -106,23 +110,23 @@ pub struct PatchCartDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(skip_serializing_if = "Option::is_none", alias = "visitor_id")]
     pub visitor_id: Option<Uuid>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "portal_user_id")]
-    pub portal_user_id: Option<Uuid>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "party_id")]
-    pub party_id: Option<Uuid>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "portal_user_id")]
+    pub portal_user_id: Option<Option<Uuid>>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "party_id")]
+    pub party_id: Option<Option<Uuid>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state: Option<StorefrontCartState>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "coupon_code")]
-    pub coupon_code: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "delivery_carrier_id")]
-    pub delivery_carrier_id: Option<Uuid>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "coupon_code")]
+    pub coupon_code: Option<Option<String>>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "delivery_carrier_id")]
+    pub delivery_carrier_id: Option<Option<Uuid>>,
     #[cfg_attr(feature = "openapi", schema(example = "example"))]
     #[serde(skip_serializing_if = "Option::is_none", alias = "fulfillment_mode")]
     pub fulfillment_mode: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "pickup_location_id")]
-    pub pickup_location_id: Option<Uuid>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "placed_at")]
-    pub placed_at: Option<DateTime<Utc>>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "pickup_location_id")]
+    pub pickup_location_id: Option<Option<Uuid>>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "placed_at")]
+    pub placed_at: Option<Option<DateTime<Utc>>>,
 }
 
 impl PatchCartDto {
@@ -317,12 +321,4 @@ impl backbone_core::ApplyUpdateDto<UpdateCartDto> for Cart {
         Ok(self)
     }
 }
-
-// =============================================================================
-// Custom DTOs
-// =============================================================================
-
-// Add custom DTOs specific to Cart here.
-// This section will be preserved during regeneration.
-// >>> END CUSTOM DTOs
 

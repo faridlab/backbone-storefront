@@ -40,7 +40,7 @@ pub struct CreateWishlistItemDto {
     #[serde(alias = "item_id")]
     pub item_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = true))]
-    #[serde(alias = "notify_on_stock")]
+    #[serde(default, alias = "notify_on_stock")]
     pub notify_on_stock: bool,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "contact_email")]
     pub contact_email: Option<String>,
@@ -94,16 +94,16 @@ pub struct PatchWishlistItemDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(skip_serializing_if = "Option::is_none", alias = "visitor_id")]
     pub visitor_id: Option<Uuid>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "portal_user_id")]
-    pub portal_user_id: Option<Uuid>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "portal_user_id")]
+    pub portal_user_id: Option<Option<Uuid>>,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(skip_serializing_if = "Option::is_none", alias = "item_id")]
     pub item_id: Option<Uuid>,
     #[cfg_attr(feature = "openapi", schema(example = true))]
     #[serde(skip_serializing_if = "Option::is_none", alias = "notify_on_stock")]
     pub notify_on_stock: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "contact_email")]
-    pub contact_email: Option<String>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "contact_email")]
+    pub contact_email: Option<Option<String>>,
 }
 
 impl PatchWishlistItemDto {
@@ -279,12 +279,4 @@ impl backbone_core::ApplyUpdateDto<UpdateWishlistItemDto> for WishlistItem {
         Ok(self)
     }
 }
-
-// =============================================================================
-// Custom DTOs
-// =============================================================================
-
-// Add custom DTOs specific to WishlistItem here.
-// This section will be preserved during regeneration.
-// >>> END CUSTOM DTOs
 

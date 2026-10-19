@@ -32,7 +32,7 @@ pub struct CreateWebsiteSaleSettingDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(alias = "website_id")]
     pub website_id: Uuid,
-    #[serde(alias = "access_gate")]
+    #[serde(default = "default_create_website_sale_setting_access_gate", alias = "access_gate")]
     pub access_gate: StorefrontAccessGate,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "default_customer_group_id")]
     pub default_customer_group_id: Option<Uuid>,
@@ -43,6 +43,10 @@ pub struct CreateWebsiteSaleSettingDto {
     pub recovery_template_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "display_warehouse_id")]
     pub display_warehouse_id: Option<Uuid>,
+}
+
+fn default_create_website_sale_setting_access_gate() -> StorefrontAccessGate {
+    StorefrontAccessGate::Open
 }
 
 // =============================================================================
@@ -90,15 +94,15 @@ pub struct PatchWebsiteSaleSettingDto {
     pub website_id: Option<Uuid>,
     #[serde(skip_serializing_if = "Option::is_none", alias = "access_gate")]
     pub access_gate: Option<StorefrontAccessGate>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "default_customer_group_id")]
-    pub default_customer_group_id: Option<Uuid>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "default_customer_group_id")]
+    pub default_customer_group_id: Option<Option<Uuid>>,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(skip_serializing_if = "Option::is_none", alias = "guest_party_id")]
     pub guest_party_id: Option<Uuid>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "recovery_template_ref")]
-    pub recovery_template_ref: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "display_warehouse_id")]
-    pub display_warehouse_id: Option<Uuid>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "recovery_template_ref")]
+    pub recovery_template_ref: Option<Option<String>>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "display_warehouse_id")]
+    pub display_warehouse_id: Option<Option<Uuid>>,
 }
 
 impl PatchWebsiteSaleSettingDto {
@@ -272,12 +276,4 @@ impl backbone_core::ApplyUpdateDto<UpdateWebsiteSaleSettingDto> for WebsiteSaleS
         Ok(self)
     }
 }
-
-// =============================================================================
-// Custom DTOs
-// =============================================================================
-
-// Add custom DTOs specific to WebsiteSaleSetting here.
-// This section will be preserved during regeneration.
-// >>> END CUSTOM DTOs
 

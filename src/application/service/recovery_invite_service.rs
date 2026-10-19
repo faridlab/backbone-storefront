@@ -70,6 +70,10 @@ impl backbone_core::write_guard::WriteGuard<RecoveryInvite> for RecoveryInviteRo
         if (create || (update && r::changed(old.as_ref(), row, &["template_ref"]))) && !r::holds(&r::le(r::length(r::field(row, "template_ref")), r::Val::Num(200.0_f64))) {
             refuse.push(Violation::new("template_ref", "max_length", "template_ref must be at most 200 characters").with_param("max", 200_i64));
         }
+        // `delivery_state_required` (@required on RecoveryInvite.delivery_state)
+        if (create || (update && r::changed(old.as_ref(), row, &["delivery_state"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "delivery_state")), r::not(r::is_empty(r::trim(r::field(row, "delivery_state")))))) {
+            refuse.push(Violation::new("delivery_state", "required", "delivery_state is required"));
+        }
         // `delivery_state_max_length` (@max(16) on RecoveryInvite.delivery_state)
         if (create || (update && r::changed(old.as_ref(), row, &["delivery_state"]))) && !r::holds(&r::le(r::length(r::field(row, "delivery_state")), r::Val::Num(16.0_f64))) {
             refuse.push(Violation::new("delivery_state", "max_length", "delivery_state must be at most 16 characters").with_param("max", 16_i64));

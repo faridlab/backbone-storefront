@@ -40,7 +40,12 @@ pub struct CreateProductPriceDto {
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "compare_at_price")]
     pub compare_at_price: Option<Decimal>,
     #[cfg_attr(feature = "openapi", schema(example = "example"))]
+    #[serde(default = "default_create_product_price_currency")]
     pub currency: String,
+}
+
+fn default_create_product_price_currency() -> String {
+    "IDR".to_string()
 }
 
 // =============================================================================
@@ -89,8 +94,8 @@ pub struct PatchProductPriceDto {
     pub item_id: Option<Uuid>,
     #[serde(skip_serializing_if = "Option::is_none", alias = "list_price")]
     pub list_price: Option<Decimal>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "compare_at_price")]
-    pub compare_at_price: Option<Decimal>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "compare_at_price")]
+    pub compare_at_price: Option<Option<Decimal>>,
     #[cfg_attr(feature = "openapi", schema(example = "example"))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub currency: Option<String>,
@@ -263,12 +268,4 @@ impl backbone_core::ApplyUpdateDto<UpdateProductPriceDto> for ProductPrice {
         Ok(self)
     }
 }
-
-// =============================================================================
-// Custom DTOs
-// =============================================================================
-
-// Add custom DTOs specific to ProductPrice here.
-// This section will be preserved during regeneration.
-// >>> END CUSTOM DTOs
 

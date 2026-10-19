@@ -80,6 +80,13 @@ impl axum::response::IntoResponse for ShopperPartyError {
 // Route Configuration
 // =============================================================================
 
+/// The permissions this entity's generic routes require: `shopper_party:<action>` for `read`, `create`,
+/// `update`, `delete`, `restore` and `purge`, with any rename the schema's `requires:` declares.
+pub fn shopper_party_permissions() -> backbone_core::http::CrudPermissions {
+    backbone_core::http::CrudPermissions::new("shopper_party")
+        .in_module("storefront")
+}
+
 /// Create Axum router with all 16 Backbone endpoints for ShopperParty.
 ///
 /// # Routes
@@ -109,21 +116,23 @@ impl axum::response::IntoResponse for ShopperPartyError {
 /// let router = create_shopper_party_routes(service);
 /// ```
 pub fn create_shopper_party_routes(service: Arc<ShopperPartyService>) -> Router {
-    BackboneCrudHandler::<ShopperPartyService, ShopperParty, CreateShopperPartyDto, UpdateShopperPartyDto, ShopperPartyResponseDto>::routes(
+    BackboneCrudHandler::<ShopperPartyService, ShopperParty, CreateShopperPartyDto, UpdateShopperPartyDto, ShopperPartyResponseDto>::routes_guarded(
         service,
         "/shopper_parties",
+        shopper_party_permissions(),
     )
 }
 
 /// Create Axum router with only the read (GET) endpoints for ShopperParty.
 ///
-/// Safe for public, unauthenticated exposure (e.g., reference data).
+/// Each route requires the entity's `read` permission, so it needs an authenticated caller.
 /// Mutations must be served separately via `create_shopper_party_write_routes`,
 /// typically wrapped in an auth middleware layer.
 pub fn create_shopper_party_read_routes(service: Arc<ShopperPartyService>) -> Router {
-    BackboneCrudHandler::<ShopperPartyService, ShopperParty, CreateShopperPartyDto, UpdateShopperPartyDto, ShopperPartyResponseDto>::read_routes(
+    BackboneCrudHandler::<ShopperPartyService, ShopperParty, CreateShopperPartyDto, UpdateShopperPartyDto, ShopperPartyResponseDto>::read_routes_guarded(
         service,
         "/shopper_parties",
+        shopper_party_permissions(),
     )
 }
 
@@ -139,9 +148,10 @@ pub fn create_shopper_party_read_routes(service: Arc<ShopperPartyService>) -> Ro
 /// service (e.g. a command router over its domain engine), serve THAT instead
 /// for any mutation that must respect domain rules.
 pub fn create_shopper_party_write_routes(service: Arc<ShopperPartyService>) -> Router {
-    BackboneCrudHandler::<ShopperPartyService, ShopperParty, CreateShopperPartyDto, UpdateShopperPartyDto, ShopperPartyResponseDto>::write_routes(
+    BackboneCrudHandler::<ShopperPartyService, ShopperParty, CreateShopperPartyDto, UpdateShopperPartyDto, ShopperPartyResponseDto>::write_routes_guarded(
         service,
         "/shopper_parties",
+        shopper_party_permissions(),
     )
 }
 

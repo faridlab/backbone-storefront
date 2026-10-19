@@ -253,6 +253,13 @@ impl backbone_core::PersistentEntity for CheckoutSession {
     fn write_protected_fields() -> &'static [&'static str] {
         &["state"]
     }
+    fn references() -> &'static [backbone_core::Reference] {
+        const REFERENCES: &[backbone_core::Reference] = &[
+            backbone_core::Reference::new("cart_id", "storefront.carts", "id"),
+            backbone_core::Reference::new("pickup_location_id", "storefront.pickup_locations", "id"),
+        ];
+        REFERENCES
+    }
     fn entity_id(&self) -> String {
         self.id.to_string()
     }

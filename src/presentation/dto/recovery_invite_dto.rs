@@ -37,8 +37,12 @@ pub struct CreateRecoveryInviteDto {
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "notified_at")]
     pub notified_at: Option<DateTime<Utc>>,
     #[cfg_attr(feature = "openapi", schema(example = "example"))]
-    #[serde(alias = "delivery_state")]
+    #[serde(default = "default_create_recovery_invite_delivery_state", alias = "delivery_state")]
     pub delivery_state: String,
+}
+
+fn default_create_recovery_invite_delivery_state() -> String {
+    "pending".to_string()
 }
 
 // =============================================================================
@@ -84,8 +88,8 @@ pub struct PatchRecoveryInviteDto {
     #[cfg_attr(feature = "openapi", schema(example = "example"))]
     #[serde(skip_serializing_if = "Option::is_none", alias = "template_ref")]
     pub template_ref: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "notified_at")]
-    pub notified_at: Option<DateTime<Utc>>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "notified_at")]
+    pub notified_at: Option<Option<DateTime<Utc>>>,
     #[cfg_attr(feature = "openapi", schema(example = "example"))]
     #[serde(skip_serializing_if = "Option::is_none", alias = "delivery_state")]
     pub delivery_state: Option<String>,
@@ -253,12 +257,4 @@ impl backbone_core::ApplyUpdateDto<UpdateRecoveryInviteDto> for RecoveryInvite {
         Ok(self)
     }
 }
-
-// =============================================================================
-// Custom DTOs
-// =============================================================================
-
-// Add custom DTOs specific to RecoveryInvite here.
-// This section will be preserved during regeneration.
-// >>> END CUSTOM DTOs
 

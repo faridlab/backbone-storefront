@@ -70,6 +70,10 @@ impl backbone_core::write_guard::WriteGuard<ProductPrice> for ProductPriceRowRul
         if (create || (update && r::changed(old.as_ref(), row, &["list_price"]))) && !r::holds(&r::ge(r::field(row, "list_price"), r::Val::Num(0.0_f64))) {
             refuse.push(Violation::new("list_price", "non_negative", "list_price must not be negative"));
         }
+        // `currency_required` (@required on ProductPrice.currency)
+        if (create || (update && r::changed(old.as_ref(), row, &["currency"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "currency")), r::not(r::is_empty(r::trim(r::field(row, "currency")))))) {
+            refuse.push(Violation::new("currency", "required", "currency is required"));
+        }
         // `currency_max_length` (@max(3) on ProductPrice.currency)
         if (create || (update && r::changed(old.as_ref(), row, &["currency"]))) && !r::holds(&r::le(r::length(r::field(row, "currency")), r::Val::Num(3.0_f64))) {
             refuse.push(Violation::new("currency", "max_length", "currency must be at most 3 characters").with_param("max", 3_i64));

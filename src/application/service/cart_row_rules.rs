@@ -43,6 +43,10 @@ impl backbone_core::write_guard::WriteGuard<Cart> for CartRowRules {
         if (create || (update && r::changed(old.as_ref(), row, &["coupon_code"]))) && !r::holds(&r::le(r::length(r::field(row, "coupon_code")), r::Val::Num(60.0_f64))) {
             refuse.push(Violation::new("coupon_code", "max_length", "coupon_code must be at most 60 characters").with_param("max", 60_i64));
         }
+        // `fulfillment_mode_required` (@required on Cart.fulfillment_mode)
+        if (create || (update && r::changed(old.as_ref(), row, &["fulfillment_mode"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "fulfillment_mode")), r::not(r::is_empty(r::trim(r::field(row, "fulfillment_mode")))))) {
+            refuse.push(Violation::new("fulfillment_mode", "required", "fulfillment_mode is required"));
+        }
         // `fulfillment_mode_max_length` (@max(20) on Cart.fulfillment_mode)
         if (create || (update && r::changed(old.as_ref(), row, &["fulfillment_mode"]))) && !r::holds(&r::le(r::length(r::field(row, "fulfillment_mode")), r::Val::Num(20.0_f64))) {
             refuse.push(Violation::new("fulfillment_mode", "max_length", "fulfillment_mode must be at most 20 characters").with_param("max", 20_i64));

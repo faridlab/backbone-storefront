@@ -18,16 +18,16 @@ pub mod wishlist_item_handler;
 
 
 // Re-exports
-pub use cart_handler::{create_cart_routes, create_cart_read_routes, create_cart_write_routes};
-pub use cart_line_handler::{create_cart_line_routes, create_cart_line_read_routes, create_cart_line_write_routes};
-pub use checkout_session_handler::{create_checkout_session_routes, create_checkout_session_read_routes, create_checkout_session_write_routes};
-pub use pickup_location_handler::{create_pickup_location_routes, create_pickup_location_read_routes, create_pickup_location_write_routes};
-pub use product_listing_handler::{create_product_listing_routes, create_product_listing_read_routes, create_product_listing_write_routes};
-pub use product_price_handler::{create_product_price_routes, create_product_price_read_routes, create_product_price_write_routes};
-pub use recovery_invite_handler::{create_recovery_invite_routes, create_recovery_invite_read_routes, create_recovery_invite_write_routes};
-pub use shopper_party_handler::{create_shopper_party_routes, create_shopper_party_read_routes, create_shopper_party_write_routes};
-pub use website_sale_setting_handler::{create_website_sale_setting_routes, create_website_sale_setting_read_routes, create_website_sale_setting_write_routes};
-pub use wishlist_item_handler::{create_wishlist_item_routes, create_wishlist_item_read_routes, create_wishlist_item_write_routes};
+pub use cart_handler::{create_cart_routes, create_cart_read_routes, create_cart_write_routes, cart_permissions};
+pub use cart_line_handler::{create_cart_line_routes, create_cart_line_read_routes, create_cart_line_write_routes, cart_line_permissions};
+pub use checkout_session_handler::{create_checkout_session_routes, create_checkout_session_read_routes, create_checkout_session_write_routes, checkout_session_permissions};
+pub use pickup_location_handler::{create_pickup_location_routes, create_pickup_location_read_routes, create_pickup_location_write_routes, pickup_location_permissions};
+pub use product_listing_handler::{create_product_listing_routes, create_product_listing_read_routes, create_product_listing_write_routes, product_listing_permissions};
+pub use product_price_handler::{create_product_price_routes, create_product_price_read_routes, create_product_price_write_routes, product_price_permissions};
+pub use recovery_invite_handler::{create_recovery_invite_routes, create_recovery_invite_read_routes, create_recovery_invite_write_routes, recovery_invite_permissions};
+pub use shopper_party_handler::{create_shopper_party_routes, create_shopper_party_read_routes, create_shopper_party_write_routes, shopper_party_permissions};
+pub use website_sale_setting_handler::{create_website_sale_setting_routes, create_website_sale_setting_read_routes, create_website_sale_setting_write_routes, website_sale_setting_permissions};
+pub use wishlist_item_handler::{create_wishlist_item_routes, create_wishlist_item_read_routes, create_wishlist_item_write_routes, wishlist_item_permissions};
 
 // This directory's extension (hand-written; ADR-0031).
 include!("mod.ext.rs");

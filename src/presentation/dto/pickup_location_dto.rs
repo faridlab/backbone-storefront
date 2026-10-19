@@ -51,8 +51,12 @@ pub struct CreatePickupLocationDto {
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "opening_hours")]
     pub opening_hours: Option<serde_json::Value>,
     #[cfg_attr(feature = "openapi", schema(example = true))]
-    #[serde(alias = "is_active")]
+    #[serde(default = "default_create_pickup_location_is_active", alias = "is_active")]
     pub is_active: bool,
+}
+
+fn default_create_pickup_location_is_active() -> bool {
+    true
 }
 
 // =============================================================================
@@ -108,26 +112,26 @@ pub struct PatchPickupLocationDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(skip_serializing_if = "Option::is_none", alias = "website_id")]
     pub website_id: Option<Uuid>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "warehouse_id")]
-    pub warehouse_id: Option<Uuid>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "warehouse_id")]
+    pub warehouse_id: Option<Option<Uuid>>,
     #[cfg_attr(feature = "openapi", schema(example = "example"))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "address_line1")]
-    pub address_line1: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub city: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "postal_code")]
-    pub postal_code: Option<String>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "address_line1")]
+    pub address_line1: Option<Option<String>>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option")]
+    pub city: Option<Option<String>>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "postal_code")]
+    pub postal_code: Option<Option<String>>,
     #[cfg_attr(feature = "openapi", schema(example = "example"))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub country: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub latitude: Option<Decimal>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub longitude: Option<Decimal>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "opening_hours")]
-    pub opening_hours: Option<serde_json::Value>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option")]
+    pub latitude: Option<Option<Decimal>>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option")]
+    pub longitude: Option<Option<Decimal>>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "opening_hours")]
+    pub opening_hours: Option<Option<serde_json::Value>>,
     #[cfg_attr(feature = "openapi", schema(example = true))]
     #[serde(skip_serializing_if = "Option::is_none", alias = "is_active")]
     pub is_active: Option<bool>,
@@ -331,12 +335,4 @@ impl backbone_core::ApplyUpdateDto<UpdatePickupLocationDto> for PickupLocation {
         Ok(self)
     }
 }
-
-// =============================================================================
-// Custom DTOs
-// =============================================================================
-
-// Add custom DTOs specific to PickupLocation here.
-// This section will be preserved during regeneration.
-// >>> END CUSTOM DTOs
 

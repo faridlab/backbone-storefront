@@ -81,6 +81,13 @@ impl axum::response::IntoResponse for PickupLocationError {
 // Route Configuration
 // =============================================================================
 
+/// The permissions this entity's generic routes require: `pickup_location:<action>` for `read`, `create`,
+/// `update`, `delete`, `restore` and `purge`, with any rename the schema's `requires:` declares.
+pub fn pickup_location_permissions() -> backbone_core::http::CrudPermissions {
+    backbone_core::http::CrudPermissions::new("pickup_location")
+        .in_module("storefront")
+}
+
 /// Create Axum router with all 16 Backbone endpoints for PickupLocation.
 ///
 /// # Routes
@@ -110,21 +117,23 @@ impl axum::response::IntoResponse for PickupLocationError {
 /// let router = create_pickup_location_routes(service);
 /// ```
 pub fn create_pickup_location_routes(service: Arc<PickupLocationService>) -> Router {
-    BackboneCrudHandler::<PickupLocationService, PickupLocation, CreatePickupLocationDto, UpdatePickupLocationDto, PickupLocationResponseDto>::routes(
+    BackboneCrudHandler::<PickupLocationService, PickupLocation, CreatePickupLocationDto, UpdatePickupLocationDto, PickupLocationResponseDto>::routes_guarded(
         service,
         "/pickup_locations",
+        pickup_location_permissions(),
     )
 }
 
 /// Create Axum router with only the read (GET) endpoints for PickupLocation.
 ///
-/// Safe for public, unauthenticated exposure (e.g., reference data).
+/// Each route requires the entity's `read` permission, so it needs an authenticated caller.
 /// Mutations must be served separately via `create_pickup_location_write_routes`,
 /// typically wrapped in an auth middleware layer.
 pub fn create_pickup_location_read_routes(service: Arc<PickupLocationService>) -> Router {
-    BackboneCrudHandler::<PickupLocationService, PickupLocation, CreatePickupLocationDto, UpdatePickupLocationDto, PickupLocationResponseDto>::read_routes(
+    BackboneCrudHandler::<PickupLocationService, PickupLocation, CreatePickupLocationDto, UpdatePickupLocationDto, PickupLocationResponseDto>::read_routes_guarded(
         service,
         "/pickup_locations",
+        pickup_location_permissions(),
     )
 }
 
@@ -140,9 +149,10 @@ pub fn create_pickup_location_read_routes(service: Arc<PickupLocationService>) -
 /// service (e.g. a command router over its domain engine), serve THAT instead
 /// for any mutation that must respect domain rules.
 pub fn create_pickup_location_write_routes(service: Arc<PickupLocationService>) -> Router {
-    BackboneCrudHandler::<PickupLocationService, PickupLocation, CreatePickupLocationDto, UpdatePickupLocationDto, PickupLocationResponseDto>::write_routes(
+    BackboneCrudHandler::<PickupLocationService, PickupLocation, CreatePickupLocationDto, UpdatePickupLocationDto, PickupLocationResponseDto>::write_routes_guarded(
         service,
         "/pickup_locations",
+        pickup_location_permissions(),
     )
 }
 

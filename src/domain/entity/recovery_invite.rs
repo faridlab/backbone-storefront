@@ -176,6 +176,12 @@ impl super::Entity for RecoveryInvite {
 }
 
 impl backbone_core::PersistentEntity for RecoveryInvite {
+    fn references() -> &'static [backbone_core::Reference] {
+        const REFERENCES: &[backbone_core::Reference] = &[
+            backbone_core::Reference::new("cart_id", "storefront.carts", "id"),
+        ];
+        REFERENCES
+    }
     fn entity_id(&self) -> String {
         self.id.to_string()
     }

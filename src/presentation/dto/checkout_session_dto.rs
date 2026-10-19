@@ -109,24 +109,24 @@ pub struct PatchCheckoutSessionDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(skip_serializing_if = "Option::is_none", alias = "website_id")]
     pub website_id: Option<Uuid>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "sales_order_id")]
-    pub sales_order_id: Option<Uuid>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "gateway_transaction_id")]
-    pub gateway_transaction_id: Option<Uuid>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "provider_code")]
-    pub provider_code: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "provider_reference")]
-    pub provider_reference: Option<String>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "sales_order_id")]
+    pub sales_order_id: Option<Option<Uuid>>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "gateway_transaction_id")]
+    pub gateway_transaction_id: Option<Option<Uuid>>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "provider_code")]
+    pub provider_code: Option<Option<String>>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "provider_reference")]
+    pub provider_reference: Option<Option<String>>,
     #[serde(skip_serializing_if = "Option::is_none", alias = "amount_total")]
     pub amount_total: Option<Decimal>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "pickup_location_id")]
-    pub pickup_location_id: Option<Uuid>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "pickup_location_id")]
+    pub pickup_location_id: Option<Option<Uuid>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state: Option<StorefrontCheckoutState>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "placed_at")]
-    pub placed_at: Option<DateTime<Utc>>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "settled_at")]
-    pub settled_at: Option<DateTime<Utc>>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "placed_at")]
+    pub placed_at: Option<Option<DateTime<Utc>>>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "settled_at")]
+    pub settled_at: Option<Option<DateTime<Utc>>>,
 }
 
 impl PatchCheckoutSessionDto {
@@ -325,12 +325,4 @@ impl backbone_core::ApplyUpdateDto<UpdateCheckoutSessionDto> for CheckoutSession
         Ok(self)
     }
 }
-
-// =============================================================================
-// Custom DTOs
-// =============================================================================
-
-// Add custom DTOs specific to CheckoutSession here.
-// This section will be preserved during regeneration.
-// >>> END CUSTOM DTOs
 

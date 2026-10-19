@@ -243,11 +243,3 @@ impl backbone_core::ApplyUpdateDto<UpdateShopperPartyDto> for ShopperParty {
     }
 }
 
-// =============================================================================
-// Custom DTOs
-// =============================================================================
-
-// Add custom DTOs specific to ShopperParty here.
-// This section will be preserved during regeneration.
-// >>> END CUSTOM DTOs
-

@@ -35,18 +35,27 @@ pub struct CreateProductListingDto {
     #[serde(alias = "item_id")]
     pub item_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = true))]
-    #[serde(alias = "sale_ok")]
+    #[serde(default, alias = "sale_ok")]
     pub sale_ok: bool,
     #[cfg_attr(feature = "openapi", schema(example = true))]
-    #[serde(alias = "is_published")]
+    #[serde(default, alias = "is_published")]
     pub is_published: bool,
     #[cfg_attr(feature = "openapi", schema(example = 42))]
+    #[serde(default = "default_create_product_listing_sequence")]
     pub sequence: i32,
-    #[serde(alias = "media_urls")]
+    #[serde(default = "default_create_product_listing_media_urls", alias = "media_urls")]
     pub media_urls: serde_json::Value,
     #[cfg_attr(feature = "openapi", schema(example = true))]
-    #[serde(alias = "allow_backorder")]
+    #[serde(default, alias = "allow_backorder")]
     pub allow_backorder: bool,
+}
+
+fn default_create_product_listing_sequence() -> i32 {
+    10
+}
+
+fn default_create_product_listing_media_urls() -> serde_json::Value {
+    serde_json::json!([])
 }
 
 // =============================================================================
@@ -296,12 +305,4 @@ impl backbone_core::ApplyUpdateDto<UpdateProductListingDto> for ProductListing {
         Ok(self)
     }
 }
-
-// =============================================================================
-// Custom DTOs
-// =============================================================================
-
-// Add custom DTOs specific to ProductListing here.
-// This section will be preserved during regeneration.
-// >>> END CUSTOM DTOs
 

@@ -81,6 +81,13 @@ impl axum::response::IntoResponse for ProductPriceError {
 // Route Configuration
 // =============================================================================
 
+/// The permissions this entity's generic routes require: `product_price:<action>` for `read`, `create`,
+/// `update`, `delete`, `restore` and `purge`, with any rename the schema's `requires:` declares.
+pub fn product_price_permissions() -> backbone_core::http::CrudPermissions {
+    backbone_core::http::CrudPermissions::new("product_price")
+        .in_module("storefront")
+}
+
 /// Create Axum router with all 16 Backbone endpoints for ProductPrice.
 ///
 /// # Routes
@@ -110,21 +117,23 @@ impl axum::response::IntoResponse for ProductPriceError {
 /// let router = create_product_price_routes(service);
 /// ```
 pub fn create_product_price_routes(service: Arc<ProductPriceService>) -> Router {
-    BackboneCrudHandler::<ProductPriceService, ProductPrice, CreateProductPriceDto, UpdateProductPriceDto, ProductPriceResponseDto>::routes(
+    BackboneCrudHandler::<ProductPriceService, ProductPrice, CreateProductPriceDto, UpdateProductPriceDto, ProductPriceResponseDto>::routes_guarded(
         service,
         "/product_prices",
+        product_price_permissions(),
     )
 }
 
 /// Create Axum router with only the read (GET) endpoints for ProductPrice.
 ///
-/// Safe for public, unauthenticated exposure (e.g., reference data).
+/// Each route requires the entity's `read` permission, so it needs an authenticated caller.
 /// Mutations must be served separately via `create_product_price_write_routes`,
 /// typically wrapped in an auth middleware layer.
 pub fn create_product_price_read_routes(service: Arc<ProductPriceService>) -> Router {
-    BackboneCrudHandler::<ProductPriceService, ProductPrice, CreateProductPriceDto, UpdateProductPriceDto, ProductPriceResponseDto>::read_routes(
+    BackboneCrudHandler::<ProductPriceService, ProductPrice, CreateProductPriceDto, UpdateProductPriceDto, ProductPriceResponseDto>::read_routes_guarded(
         service,
         "/product_prices",
+        product_price_permissions(),
     )
 }
 
@@ -140,9 +149,10 @@ pub fn create_product_price_read_routes(service: Arc<ProductPriceService>) -> Ro
 /// service (e.g. a command router over its domain engine), serve THAT instead
 /// for any mutation that must respect domain rules.
 pub fn create_product_price_write_routes(service: Arc<ProductPriceService>) -> Router {
-    BackboneCrudHandler::<ProductPriceService, ProductPrice, CreateProductPriceDto, UpdateProductPriceDto, ProductPriceResponseDto>::write_routes(
+    BackboneCrudHandler::<ProductPriceService, ProductPrice, CreateProductPriceDto, UpdateProductPriceDto, ProductPriceResponseDto>::write_routes_guarded(
         service,
         "/product_prices",
+        product_price_permissions(),
     )
 }
 
